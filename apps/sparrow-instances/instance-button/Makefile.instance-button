@@ -1,0 +1,3 @@
+instance-button_src = instance-button.c
+
+SPARROW_OAM_INSTANCES += instance_button

@@ -1,0 +1,237 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2016, SICS, Swedish ICT
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of the Institute nor the names of its contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+# Author: Joakim Eriksson, joakime@sics.se
+#         Niclas Finne, nfi@sics.se
+#
+
+import sys, binascii, datetime, argparse, zipfile, tlvlib, struct, socket
+
+def get_flash(zip, image):
+    findstr = str(image) + ".flash"
+    infolist = zip.infolist()
+    for info in infolist:
+        if info.filename.find(findstr) > 0:
+            return info
+    return None
+
+def get_image_crc32(instance, host, port):
+    t = tlvlib.create_get_tlv32(instance, tlvlib.VARIABLE_IMAGE_CRC32)
+    enc,tlvs = tlvlib.send_tlv(t, host, port)
+    if tlvs[0].error == 0:
+        return tlvs[0].int_value
+    return None
+
+def verify_image_crc32(instance, data, host, port):
+    image_crc32 = get_image_crc32(instance, host, port)
+    if not image_crc32:
+        print "ERROR failed to get CRC32"
+        return False
+    data_crc32 = binascii.crc32(data) & 0xffffffff
+    if image_crc32 == data_crc32:
+        print "Image CRC32 OK!"
+        return True
+    print "ERROR CRC32: image CRC32:",image_crc32,"firmware CRC32:",data_crc32
+
+def get_image_status(instance, host, port):
+    t = tlvlib.create_get_tlv32(instance, tlvlib.VARIABLE_IMAGE_STATUS)
+    enc,tlvs = tlvlib.send_tlv(t, host, port)
+    if tlvs[0].error == 0:
+        return tlvs[0].int_value
+    return None
+
+def send_upgrade(segment, size, instance, host, port):
+    print "Upgrading ", segment[0], instance, len(segment[1]), " at ", segment[0] * size, "\b" * 35,
+    sys.stdout.flush()
+    t1 = tlvlib.create_set_tlv32(instance, tlvlib.VARIABLE_WRITE_CONTROL,
+                                 tlvlib.FLASH_WRITE_CONTROL_WRITE_ENABLE)
+    t2 = tlvlib.create_set_vector_tlv(instance, tlvlib.VARIABLE_FLASH,
+                                      tlvlib.SIZE32, segment[0] * size / 4, len(segment[1]) / 4, segment[1])
+    try:
+        enc,tlvs = tlvlib.send_tlv([t1,t2], host, port)
+    except socket.timeout:
+        return False
+    #tlvlib.print_tlvs(tlvs)
+    return True
+
+def create_segments(data, size):
+    segments = {}
+    i = 0
+    while len(data) > 0:
+        segments[i] = [i,data[0:size]]
+        i = i + 1
+        data = data[size:]
+    return segments
+
+def do_erase(instance, host, port):
+    # create Erase TLV
+    t1 = tlvlib.create_set_tlv32(instance, tlvlib.VARIABLE_WRITE_CONTROL, tlvlib.FLASH_WRITE_CONTROL_ERASE)
+    enc,tlvs = tlvlib.send_tlv(t1, host, port)
+    return tlvs[0].error == 0
+
+def do_reboot(host, port, image=0):
+    if image == 0:
+        t = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_HARDWARE_RESET, 1)
+    else:
+        t = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_HARDWARE_RESET,
+                                    tlvlib.HARDWARE_RESET_KEY | image)
+    try:
+        tlvlib.send_tlv(t, host, port, show_error=False, retry=False, timeout=0.2)
+    except socket.timeout:
+        # A timeout is expected since the node should reboot
+        pass
+    return True
+
+def do_upgrade(data, instance, host, port, block_size):
+    new_upgrade = {}
+    to_upgrade = create_segments(data, block_size)
+
+    print "Got", len(to_upgrade.keys()), "segments."
+
+    i = 0
+    while i < 10 and len(to_upgrade.keys()) > 0:
+        print "Writing", i + 1, len(to_upgrade.keys()), "left to go.", "\b" * 35,
+        sys.stdout.flush()
+        i = i + 1
+        for udata in to_upgrade:
+            if send_upgrade(to_upgrade[udata], block_size, instance, host, port):
+                to_upgrade[udata] = None
+            else:
+                new_upgrade[udata] = to_upgrade[udata]
+        to_upgrade = new_upgrade
+    print
+    return len(to_upgrade.keys()) == 0
+
+block_size = 512
+port = tlvlib.UDP_PORT
+firmware = None
+verbose = False
+
+parser = argparse.ArgumentParser(description='Over-the-Air update tool.')
+parser.add_argument("-a", help="host")
+parser.add_argument("-i", help="input file (image archive)")
+parser.add_argument("-k", action="store_true",
+                    help="keep running after upgrade (do not reboot)")
+parser.add_argument("-s", action="store_true", help="only show status")
+parser.add_argument("-p", help="port (default: %(default)s)", default=port)
+parser.add_argument("-b", help="block size (default: %(default)s)",
+                    default=block_size)
+parser.add_argument("-v", action="store_true", help="verbose output")
+
+args = parser.parse_args()
+cmd = 'upgrade'
+keep_running = False
+
+if args.i:
+    firmware = args.i
+
+if args.a:
+    host = args.a
+else:
+    print "Please specify host address"
+    parser.print_help()
+    exit()
+
+if args.p:
+    port = int(args.p)
+
+if args.b:
+    block_size = int(args.b)
+
+if args.v:
+    verbose = True
+
+if args.k:
+    keep_running = True
+
+if args.s:
+    cmd = 'verify'
+
+if cmd == 'upgrade':
+    if not firmware:
+        print "Specify image file"
+        parser.print_help()
+        exit()
+
+    file = open(firmware, 'r')
+    zip = zipfile.ZipFile(file)
+
+d = tlvlib.discovery(host, port)
+print "---- Upgrading ----"
+print "Product label:", d[0][0], " type: %016x"%d[0][1], " instances:", len(d[1])
+print "Booted at:",tlvlib.get_start_ieee64_time_as_string(d[0][2]),"-",tlvlib.convert_ieee64_time_to_string(d[0][2])
+
+i = 1
+upgrade = 0
+for data in d[1]:
+    if data[0] == tlvlib.INSTANCE_IMAGE:
+        print "Instance " + str(data[2]) + ": type: %016x"%data[0], " ", data[1]
+        t1 = tlvlib.create_get_tlv64(i, tlvlib.VARIABLE_IMAGE_VERSION)
+        t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_IMAGE_STATUS)
+        t3 = tlvlib.create_get_tlv64(i, tlvlib.VARIABLE_IMAGE_TYPE)
+        enc, tlvs = tlvlib.send_tlv([t1,t2,t3], host, port)
+        tlv = tlvs[0]
+        tlvstatus = tlvs[1]
+        print "\tVersion:    %016x"%tlv.int_value, "  ", tlvlib.parse_image_version(tlv.int_value), "inc:", str(tlv.int_value & 0x1f)
+        print "\tImage Type: %016x"%tlvs[2].int_value,"   Status:", tlvlib.get_image_status_as_string(tlvstatus.int_value)
+        if (tlvstatus.int_value & tlvlib.IMAGE_STATUS_ACTIVE) == 0:
+            upgrade = i
+            label = data[1]
+            upgrade_status = tlvstatus.int_value
+            upgrade_version = tlv.int_value
+    i = i + 1
+
+if cmd == 'upgrade' and upgrade > 0:
+    zfile = None
+    if label == "Primary firmware":
+        zfile = get_flash(zip, 1)
+    if label == "Backup firmware":
+        zfile = get_flash(zip, 2)
+
+    if zfile is not None:
+        data = zip.read(zfile)
+        print "Upgrading instance", upgrade, label, "with image", zfile.filename," (" + str(len(data)) + " bytes)"
+        if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
+            print "Erasing image",upgrade
+            if not do_erase(upgrade, host, port):
+                print "ERROR: failed to erase image"
+                exit()
+        if not do_upgrade(data, upgrade, host, port, block_size):
+            print "ERROR: failed to write firmware file"
+            exit()
+
+        upgrade_status = get_image_status(upgrade, host, port)
+        if not upgrade_status:
+            print "ERROR: failed to verify upgrade status"
+            exit()
+        if cmd == 'upgrade' and upgrade_status == tlvlib.IMAGE_STATUS_WRITABLE:
+            # No errors, status ok
+            print "New image OK. Rebooting to new image."
+            if not do_reboot(host, port):
+                print "ERROR: failed to reboot to new image"

@@ -1,0 +1,48 @@
+ifndef SPARROW
+  $(error SPARROW not defined! You must specify where SPARROW resides!)
+endif
+
+ifndef CONTIKI
+  $(error CONTIKI not defined! You must specify where CONTIKI resides!)
+endif
+
+ifeq ($(HOST_OS),Darwin)
+  AROPTS = rc
+endif
+
+CFLAGS += -DCONTIKI_TARGET_NATIVE=1
+# CFLAGS += -Wswitch-enum
+
+CLEAN += *.native-sparrow *.native symbols.h symbols.c
+
+CONTIKI_TARGET_DIRS = . dev
+CONTIKI_TARGET_MAIN = ${addprefix $(OBJECTDIR)/,contiki-main.o}
+
+CONTIKI_TARGET_SOURCEFILES = contiki-main.c clock.c \
+                platform-native.c cfs-posix.c cfs-posix-dir.c
+
+ifeq ($(HOST_OS),Windows)
+CONTIKI_TARGET_SOURCEFILES += wpcap-drv.c wpcap.c
+TARGET_LIBFILES = /lib/w32api/libws2_32.a /lib/w32api/libiphlpapi.a
+else
+CONTIKI_TARGET_SOURCEFILES += tapdev-drv.c linuxradio-drv.c
+#math
+ifneq ($(CONTIKI_WITH_IPV6),1)
+CONTIKI_TARGET_SOURCEFILES += tapdev.c
+else
+CONTIKI_TARGET_SOURCEFILES += tapdev6.c
+endif
+endif
+
+CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
+
+.SUFFIXES:
+
+### Define the CPU directory
+CONTIKI_CPU=$(CONTIKI)/cpu/native
+include $(CONTIKI)/cpu/native/Makefile.native
+
+MODULES += core/net core/net/mac core/net/llsec core/net/ip64-addr
+
+# Software based implementation of CRC32
+EXTERNAL_MODULES += $(SPARROW)/lib/crc32-flash

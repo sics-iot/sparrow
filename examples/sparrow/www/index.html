@@ -1,0 +1,564 @@
+<!DOCTYPE html><meta charset="utf-8" />
+<html>
+<head>
+<title>Sparrow IoT Application Layer Demo</title>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link rel="stylesheet" type="text/css" href="jquery-modal.css">
+<link rel="stylesheet" type="text/css" href="vis.min.css">
+<script type="text/javascript" src='surfaceplot.js'></script>
+<script type="text/javascript" src='jquery-1.11.2.min.js'></script>
+<script type="text/javascript" src='jquery-modal.js'></script>
+<script type="text/javascript" src='jquery.easytabs.js'></script>
+<script type="text/javascript" src='vis.min.js'></script>
+<script type="text/javascript">
+    $(document).ready( function() {
+	$('#tab-container').easytabs({animate: false});
+/* Add event for switching tabs so that we can refresh route list, etc */
+	$('#tab-container').bind('easytabs:after',
+				 function(evt, tab, panel, data) {
+				     if (panel.attr('id') == "tabs1-1") {
+					 clearScreen();
+					 doSend("routes");
+				     } else if(panel.attr('id') == "tabs1-2") {
+					 doSend("topology");
+				     } else if(panel.attr('id') == "tabs1-3") {
+					 doSend("channel");
+				     }
+				 });
+    });
+
+</script>
+
+<script type="text/javascript">
+    // create an array with nodes
+    var nodes = [
+        {id: 1, label: 'NBR', title: 'Rank 1.0', level:0}
+    ];
+
+    // create an array with edges
+    var edges = [
+    ];
+
+    var data = {
+        nodes: nodes,
+        edges: edges
+    };
+    var options = {
+        hierarchicalLayout: true,
+    }
+    var network;
+    // create a network
+    $(document).ready( function() {
+	var container = document.getElementById('network-visualization');
+	container.innerHTML = "";
+	network = new vis.Network(container, data, options);
+    });
+
+    function updateTopology(json) {
+	var data = {nodes:json.topology.nodes, edges:json.topology.edges};
+	message("got update of network topology...");
+//	alert("Update topoligy" + " Data: " + JSON.stringify(data));
+        setTimeout(new function() {
+	  network.setData(data);
+	  network.redraw();
+        }, 200)
+    }
+
+</script>
+
+
+<script language="javascript" type="text/javascript">
+var wsUri;
+var output;
+var modalOutput;
+var nbr
+var DEBUG = 1
+var websocket;
+
+if (location.host) {
+  var lhost = location.host;
+  var i = lhost.indexOf(':')
+  if (i > 0) {
+    lhost = lhost.substring(0, i)
+  }
+  wsUri = "ws://" + lhost + ":8001/";
+} else {
+  wsUri = "ws://127.0.0.1:8001/";
+}
+
+/*
+ * modal-output-xx => the DIV where the output goes
+ * modal-window-xx => the DIV that is the modal window
+ */
+
+function init() {
+  output = document.getElementById("output");
+  modalOutput = document.getElementById("modal-output-test");
+  testWebSocket();
+  setUp();
+  setInterval(function (){checkSocket()}, 2000);
+}
+
+function setRouter(type) {
+    if (type == "channel") {
+	ch = $("input[name='channel']").val();
+	if (ch && ch.length > 0) {
+	  doSend("nbrset channel " + ch);
+	}
+    } else if (type == "panid") {
+	panid = $("input[name='panid']").val();
+	if (panid && panid.length > 0) {
+	  doSend("nbrset panid " + panid);
+	}
+    } else if (type == "ekey") {
+	key = $("input[name='ekey']").val();
+	if (!key || key.length == 0) {
+	  // Ignore
+	} else if (key.length != 32) {
+	  show_error('invalid key size')
+	} else {
+	  doSend("nbrset key " + key);
+	}
+    } else if (type == "slevel") {
+	level = $("select[name='slevel']").val();
+	if (level && level.length > 0) {
+	  doSend("nbrset slevel " + level);
+	}
+    } else if (type == "globalrepair") {
+        doSend("nbrset globalrepair");
+    }
+}
+
+function getRouterForm() {
+  return '<h3>Configuration</h3><table><tr><td>Channel</td><td><input type="text" name="channel"></td><td>'
+    + '<button class="cupid-green-small" onClick="setRouter(\'channel\')">Set</button></td></tr>'
+    + '<tr><td>PAN ID</td><td><input type="text" name="panid"></td><td>'
+    + '<button class="cupid-green-small" onClick="setRouter(\'panid\')">Set</button></td></tr>'
+    + '<tr><td colspan=2>Global Network Repair</td><td>'
+    + '<button class="cupid-green-small" onClick="setRouter(\'globalrepair\')">Request</button></td></tr>'
+    + '</table>';
+}
+
+function testWebSocket() {
+  websocket = new WebSocket(wsUri);
+  websocket.onopen = function(evt) {
+    onOpen(evt) };
+  websocket.onclose = function(evt) {
+    onClose(evt) };
+  websocket.onmessage = function(evt) {
+    onMessage(evt) };
+  websocket.onerror = function(evt) {
+    onError(evt) };
+}
+
+function message(msg) {
+    $('#lastmessage').html("<b>Last Message:&nbsp;</b>" + msg);
+}
+
+function checkSocket() {
+    if(websocket == null) {
+	message("Reconnecting...");
+	testWebSocket();
+    }
+}
+
+function debug(str) {
+    if (DEBUG)
+	message("DBG:" + str);
+}
+
+function show_error(msg) {
+  message('<span style="color: red;">ERROR: ' + msg + '</span>');
+}
+
+function onOpen(evt) {
+  debug("CONNECTED");
+  doSend("nbr")
+  $('#ws-led').addClass('led-green').removeClass('led-red');
+}
+
+function onClose(evt) {
+  debug("DISCONNECTED");
+  websocket = null;
+  $('#ws-led').addClass('led-red').removeClass('led-green');
+  $('#nbr-led').addClass('led-red').removeClass('led-green');
+}
+
+function onMessage(evt) {
+    try {
+	json = JSON.parse(evt.data);
+	if (json.hasOwnProperty("nbr")) {
+	    nbr = json.nbr;
+	    if (nbr != "") {
+		message('Border router is at IP: ' + nbr);
+		$('#nbr-led').addClass('led-green').removeClass('led-red');
+	    } else {
+		message("Border router is down.");
+		$('#nbr-led').addClass('led-red').removeClass('led-green');
+	    }
+	} else if (json.hasOwnProperty("Channel")) {
+
+	    message("Radio on Channel: " + json.Channel + " PAN ID: " + json.PanID);
+	    var table = '<table id="nbrinfo">';
+            for (var name in json) {
+              // Do not include inherited properties
+              if (json.hasOwnProperty(name)) {
+		table += '<tr><th>' + name + '</th><td>' + json[name] +
+                   '</td></tr>';
+              }
+	    }
+	    table += '</table>';
+            table += getRouterForm();
+            targetElem = document.getElementById("nbroutput");
+            clearScreen(targetElem, "6LoWPAN Border Router Information");
+	    writeToScreen(table, targetElem);
+	} else if (json.hasOwnProperty("rssi")) {
+	    updateRSSI(json.rssi);
+	} else if (json.hasOwnProperty("temp")) {
+	    // Set the temperature in the correct message row
+            addr = json.address.replace(new RegExp(":", 'g'), "\\:");
+	    $("#msg-" + addr).html("Temperature: " + json.temp + " C");
+	} else if (json.hasOwnProperty("sniff")) {
+	    writeModal('<span style="color: green;">Packet at:' +
+		       new Date()/1000.0 +
+		       '<br><pre>' + json.hex + '</pre></span>',"test");
+        } else if (json.hasOwnProperty("routes")) {
+	    routes = json.routes;
+	    /* head first */
+	    table = '<table id="nodes"><tr><th></th><th>IPv6 Address</th><th>Last Seen</th><th>Rank</th><th>Type</th><th>Actions</th><th>Msg</th></tr>';
+	    for (i = 0; i < routes.length; i++) {
+		if (i % 2 == 0) {
+		    tr = '<tr>';
+		} else {
+		    tr = '<tr class="alt">';
+		}
+
+		rplinfo = "";
+		if (routes[i].hasOwnProperty("rplinfo")) {
+		    rplinfo = routes[i].rplinfo.rank;
+		}
+		if (routes[i].last_seen < 120) {
+		   tr += '<td><div id="stat-' + routes[i].address + '" class="led-green"></div></td>';
+		} else {
+		   tr += '<td><div id="stat-' + routes[i].address + '" class="led-red"></div></td>'
+		}
+
+		table += tr + '<td><a href="http://[' + routes[i].address + ']/">' + routes[i].address + '</a> <a href="/wget/' + routes[i].address + '/">(via server)</a></td><td id="last-' + routes[i].address + '">' +
+	            routes[i].last_seen + '</td><td>' +
+		    rplinfo + '</td><td id=\'type-' + routes[i].address + '\'>' + routes[i].type + '</td><td id=\'act-' + routes[i].address + '\'>' +
+		    getTypeButtons(routes[i].type, routes[i].address) +
+		    '</td><td id=\'msg-' + routes[i].address + '\'></td></tr>';
+	    }
+	    table += '</table>';
+	    writeToScreen(table);
+	} else if (json.hasOwnProperty("ping")) {
+	    writeModal(json.ping, "test");
+	} else if (json.hasOwnProperty("event")) {
+	    handleEvent(json);
+	} else if (json.hasOwnProperty("topology")) {
+	    updateTopology(json);
+	} else if (json.hasOwnProperty("response")) {
+	    message(json.response);
+	} else if (json.hasOwnProperty("error")) {
+            show_error(json.error)
+	} else {
+	    message('<span style="color: red;">RESPONSE: ' + evt.data + '</span>');
+	}
+    } catch (e) {
+	message('<span style="color: blue;">RESPONSE(Error): ' + evt.data + '</span> ' + e);
+    }
+}
+
+// Generate buttons based on the type of device
+function getTypeButtons(type, address) {
+    buttons = '<button class="cupid-green-small" onClick="prepareModal(\'Ping Node\', \'test\', \'ping ' + address + '\');">Ping node</button>&nbsp';
+    // Fix this later - should check the actual product type instead.
+    if (type == "IoT-U10" || type == "IoT-U10+" ||
+	type == "iot-u10" || type == "iot-u10+") {
+	// generate the buttons for the IoT-U10/IoT-U10+
+	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="temp_read(\'' + address + '\')">Read Temp</button>';
+    } else if (type == "Zoul RE-Mote") {
+	// generate the buttons for the Zoul RE-MOTE
+	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',2)">Led 3 Toggle</button>&nbsp;';
+    }
+    return buttons;
+}
+
+// function for sending a led control command
+function led_control(address, led) {
+    doSend("tlvled " + address + " " + led);
+}
+
+function temp_read(address) {
+    doSend("tlvtemp " + address);
+}
+
+function handleEvent(json) {
+    if (json.event.type == "discovery") {
+	addr = json.event.address.replace(new RegExp(":", 'g'), "\\:");
+	$("#type-" + addr).html(json.event.label);
+	buttons = getTypeButtons(json.event.label, json.event.address);
+	$("#act-" + addr).html(buttons);
+	$("#stat-" + addr).addClass('led-green').removeClass('led-red');
+	$("#last-" + addr).html('0');
+    } else if (json.event.type == "button") {
+	addr = json.event.address.replace(new RegExp(":", 'g'), "\\:");
+	$("#msg-" + addr).html("Button pressed: " + json.event.count + " times");
+    }
+}
+
+function onError(evt) {
+  debug('<span style="color: red;">ERROR:</span> ' + evt.data);
+}
+
+function doSend(message) {
+  debug(" SENT: " + message);
+  websocket.send(message);
+}
+
+/* We send down a stop to any command that might be running in a modal
+   state or for a longer time. */
+function modalClosed(target) {
+    doSend("stop");
+}
+
+/* Prepare a modal window with clean up + set title + send command and
+ * Make it modal */
+function prepareModal(title, target, message) {
+    doSend(message);
+    targetElem = document.getElementById("modal-output-" + target);
+    clearScreen(targetElem, title);
+    $("#modal-window-" + target).modal();
+    $("#modal-window-" + target).on($.modal.BEFORE_CLOSE,
+	function(event, modal) {
+	    modalClosed(target);
+	});
+}
+
+function writeModal(message, target) {
+    targetElem = document.getElementById("modal-output-" + target);
+    writeToScreen(message, targetElem);
+    out = $("#modal-output-" + target)
+    out.scrollTop(out.height());
+}
+
+function writeToScreen(message, target) {
+  var pre = document.createElement("p");
+  if (typeof target === 'undefined') {
+      target = output
+  }
+  pre.style.wordWrap = "break-word";
+  pre.innerHTML = message;
+  target.appendChild(pre);
+}
+
+window.addEventListener("load", init, false);
+
+function clearScreen(target, heading) {
+    if (typeof target === 'undefined') {
+	target = output
+    }
+    if (typeof heading === 'undefined') {
+	target.innerHTML = "";
+    } else {
+	target.innerHTML = "<h2>" + heading + "</h2>";
+    }
+}
+
+</script>
+<script language="javascript" type="text/javascript">
+
+var allData;
+var surfacePlot;
+var options;
+var tooltipStrings = new Array();
+
+function setUp() {
+    var numRows = 40;
+    var numCols = 104;
+
+    surfacePlotDiv.innerHTML = "";
+
+    allData = {
+        values: [],
+        getNumberOfRows: function () {
+            return this.values.length
+        },
+        getNumberOfColumns: function () {
+            return this.values[0].length;
+        },
+        getFormattedValue: function (i, j) {
+            return this.values[i][j];
+        }
+    };
+
+    var d = 360 / numRows;
+    var idx = 0;
+
+    for (var i = 0; i < numRows; i++) {
+
+        allData.values.push([]);
+
+        for (var j = 0; j < numCols; j++) {
+            var value = 0.0;
+            allData.values[i].push(value);
+            tooltipStrings[idx] = "x:" + i + ", y:" + j + " = " + value;
+            idx++;
+        }
+    }
+
+    surfacePlot = new greg.ross.visualisation.SurfacePlot(document.getElementById("surfacePlotDiv"));
+
+    // Don't fill polygons in IE. It's too slow.
+    var fillPly = true;
+
+    // Define a colour gradient.
+    var colour1 = {
+        red: 0,
+        green: 0,
+        blue: 255
+    };
+    var colour2 = {
+        red: 0,
+        green: 255,
+        blue: 255
+    };
+    var colour3 = {
+        red: 0,
+        green: 255,
+        blue: 0
+    };
+    var colour4 = {
+        red: 255,
+        green: 255,
+        blue: 0
+    };
+    var colour5 = {
+        red: 255,
+        green: 0,
+        blue: 0
+    };
+    var colours = [colour1, colour2, colour3, colour4, colour5];
+
+    // Axis labels.
+    var xAxisHeader = "Time";
+    var yAxisHeader = "Frequency (2.4 GHz)";
+    var zAxisHeader = "RSSI";
+
+    options = {
+        xPos: 30,
+        yPos: 10,
+        width: 600,
+        height: 500,
+        colourGradient: colours,
+        fillPolygons: fillPly,
+        tooltips: tooltipStrings,
+        xTitle: xAxisHeader,
+        yTitle: yAxisHeader,
+        zTitle: zAxisHeader,
+        restrictXRotation: false
+    };
+
+    surfacePlot.draw(allData, options);
+}
+
+function scaleRSSI(val) {
+    return val / 128.0 + 1.0; /* only positive values? */
+}
+function updateRSSI(rssi) {
+    /* remove first add a new last */
+    allData.values.splice(0,1);
+    allData.values.push(rssi.map(scaleRSSI));
+
+    var idx = 0;
+    var numRows = allData.getNumberOfRows();
+    var numCols = allData.getNumberOfColumns();
+
+    for (var i = 0; i < numRows; i++) {
+        for (var j = 0; j < numCols; j++) {
+            var value = allData.values[i][j];
+            tooltipStrings[idx] = "x:" + i + ", y:" + j + " = " + ((value - 1.0) * 128.0)+ " dBM";
+            idx++;
+        }
+    }
+
+    surfacePlot.draw(allData, options);
+}
+
+</script>
+</head>
+<body>
+
+<!-- The top part of the page ------------------------------------->
+<div class="text1"><strong>  Sparrow Application Layer Demo</strong><div class="led-panel"><div id="nbr-led" class="led-green"></div>BR Status</div><div class="led-panel"><div id="ws-led" class="led-green"></div>WS Status</div>
+</div>
+
+<!-- ------ Modal Window for the RSSI graph ----------------- -->
+<div id="modal-window-test2" class="modal">
+    <div id="modal-output-test2"> </div>
+    <div id='surfacePlotDiv'>
+    <!-- SurfacePlot goes here... -->
+    </div>
+</div>
+
+<!-- ------ Modal Window for other output (Sniff, ping, etc) ----- -->
+<div id="modal-window-test" class="modal">
+    <div id="modal-output-test" style="height: 400px; overflow-y: auto;">
+  This is Modal?
+    </div>
+</div>
+
+<br>
+<!-- tab test -->
+<div id="tab-container" class="tab-container">
+  <ul class='etabs'>
+    <li class='tab'><a href="#tabs1-1">6LoWPAN Devices</a></li>
+    <li class='tab'><a href="#tabs1-2">Network Topology</a></li>
+    <li class='tab'><a href="#tabs1-3">BR and Serial Radio</a></li>
+    <li class='tab'><a href="#tabs1-4">About</a></li>
+  </ul>
+  <div class='panel-container'>
+    <div id="tabs1-1">
+      <button class="cupid-green" onClick="clearScreen();doSend('routes')">Update list</button>
+
+      <div id="output"></div>
+    </div>
+    <div id="tabs1-2">
+      <h4>Network Topology</h4>
+      <div id="network-visualization"></div>
+    </div>
+    <div id="tabs1-3">
+      <button class="cupid-green" onClick="prepareModal('BR Ping', 'test', 'ping ' + nbr);">Ping BR</button>
+
+      <button class="cupid-green" onClick="prepareModal('RSSI Scan (all channels)', 'test2', 'rssi');">RSSI Scan</button>
+
+      <button class="cupid-green" onClick="prepareModal('Packet Sniffer Data', 'test', 'sniff');">Sniff</button>
+      <button class="cupid-green" onClick="doSend('channel')">Update Info</button>
+      <div id="nbroutput"></div>
+    </div>
+    <div id="tabs1-4">
+      This is a demo of the Sparrow Application Layer for Contiki OS. The demo
+      illustrate some of the features of the Sparrow Application Layer and the
+      tools around it. The demo is based on the Sparrow / Contiki OS codebase
+      plus some open source libraries for Javascript and Python.
+
+     <p>
+      Non Sparrow / Contiki OS code used for the demo:
+      <ul>
+        <li>JQuery by John Resig et.al. (MIT License)
+        <li>JQuery EasyTabs by Steve Schwartz (MIT License)
+        <li>JQuery Modal by Kyle Fox (MIT License)
+        <li>Javascript-surface-plot by Greg Ross (New BSD License)
+	<li>Vis.js for Network Topology Graphs (Apache 2.0 and MIT License)
+        <li>SimpleWebSocketServer - Python library by Dave Pallot (MIT License)
+      </ul>
+    </div>
+  </div>
+</div>
+<div id="lastmessage"></div>
+</body>
+</html>

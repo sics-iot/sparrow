@@ -1,0 +1,3 @@
+instance-leds_src = instance-leds.c
+
+SPARROW_OAM_INSTANCES += instance_leds

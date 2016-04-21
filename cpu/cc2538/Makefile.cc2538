@@ -1,0 +1,187 @@
+CC      = arm-none-eabi-gcc
+CPP     = arm-none-eabi-cpp
+LD      = arm-none-eabi-gcc
+AR      = arm-none-eabi-ar
+OBJCOPY = arm-none-eabi-objcopy
+OBJDUMP = arm-none-eabi-objdump
+NM      = arm-none-eabi-nm
+SIZE    = arm-none-eabi-size
+
+TRAILERTOOL ?= $(SPARROW_TOOLS)/trailertool.py
+CREATERESCUEIMAGE ?= $(SPARROW)/tools/cc2538/create-rescue-image.sh
+BOOTLOADER_BINARY ?= $(CONTIKI_CPU)/bootloader/prebuilt/bootloader-0.9
+
+ifneq ($(IMAGE),)
+CFLAGS += -DIMAGE=$(IMAGE)
+SOURCE_LDSCRIPT=$(CONTIKI_CPU)/cc2538-image.lds
+LDSCRIPT=$(OBJECTDIR)/cc2538-image.ld
+else
+ifndef SOURCE_LDSCRIPT
+SOURCE_LDSCRIPT = $(CONTIKI_CPU)/cc2538.lds
+endif
+LDSCRIPT = $(OBJECTDIR)/cc2538.ld
+endif
+
+CFLAGS += -mcpu=cortex-m3 -mthumb -mlittle-endian
+CFLAGS += -ffunction-sections -fdata-sections
+CFLAGS += -fshort-enums -fomit-frame-pointer -fno-strict-aliasing
+CFLAGS += -Wall
+LDFLAGS += -mcpu=cortex-m3 -mthumb -nostartfiles
+LDFLAGS += -T $(LDSCRIPT)
+LDFLAGS += -Wl,--gc-sections,--sort-section=alignment
+LDFLAGS += -Wl,-Map=$(@:.elf=-$(TARGET).map),--cref,--no-warn-mismatch
+OBJCOPY_FLAGS += -O binary --gap-fill 0xff
+OBJDUMP_FLAGS += --disassemble --source --disassembler-options=force-thumb
+
+ifdef WERROR
+CFLAGS += -Werror
+endif
+
+### Are we building with code size optimisations?
+ifeq ($(SMALL),1)
+  CFLAGS += -Os
+else
+  CFLAGS += -O2
+endif
+
+### If the user-specified a Node ID, pass a define
+ifdef NODEID
+  CFLAGS += -DIEEE_ADDR_NODE_ID=$(NODEID)
+endif
+
+### CPU-dependent cleanup files
+CLEAN += symbols.c symbols.h *.d *.elf *.hex
+
+### CPU-dependent directories
+CONTIKI_CPU_DIRS = . dev usb
+
+### Use the existing debug I/O in cpu/arm/common
+CONTIKI_CPU_DIRS += ../arm/common/dbg-io
+
+### Use usb core from cpu/cc253x/usb/common
+CONTIKI_CPU_DIRS += ../cc253x/usb/common ../cc253x/usb/common/cdc-acm
+
+### CPU-dependent source files
+CONTIKI_CPU_SOURCEFILES += soc.c clock.c rtimer-arch.c uart.c watchdog.c
+CONTIKI_CPU_SOURCEFILES += nvic.c cpu.c sys-ctrl.c gpio.c ioc.c spi.c adc.c
+CONTIKI_CPU_SOURCEFILES += crypto.c aes.c ccm.c sha256.c
+CONTIKI_CPU_SOURCEFILES += cc2538-rf.c udma.c lpm.c
+CONTIKI_CPU_SOURCEFILES += pka.c bignum-driver.c ecc-driver.c ecc-algorithm.c
+CONTIKI_CPU_SOURCEFILES += ecc-curve.c
+CONTIKI_CPU_SOURCEFILES += dbg.c ieee-addr.c
+CONTIKI_CPU_SOURCEFILES += slip-arch.c slip.c
+CONTIKI_CPU_SOURCEFILES += i2c.c cc2538-temp-sensor.c vdd3-sensor.c
+CONTIKI_CPU_SOURCEFILES += cfs-coffee.c cfs-coffee-arch.c pwm.c
+CONTIKI_CPU_SOURCEFILES += crc32.c boot-data.c
+CONTIKI_CPU_SOURCEFILES += cc2538-sparrow-device.c cc2538-sparrow-flash.c
+
+DEBUG_IO_SOURCEFILES += dbg-printf.c dbg-snprintf.c dbg-sprintf.c strformat.c
+
+USB_CORE_SOURCEFILES += usb-core.c cdc-acm.c
+USB_ARCH_SOURCEFILES += usb-arch.c usb-serial.c cdc-acm-descriptors.c
+
+ifneq ($(TARGET_START_SOURCEFILES),)
+  CPU_START_SOURCEFILES = TARGET_START_SOURCEFILES
+else
+  CPU_START_SOURCEFILES = startup-gcc.c
+endif
+CPU_STARTFILES = ${addprefix $(OBJECTDIR)/,${call oname, $(CPU_START_SOURCEFILES)}}
+
+CONTIKI_SOURCEFILES += $(CONTIKI_CPU_SOURCEFILES) $(DEBUG_IO_SOURCEFILES)
+CONTIKI_SOURCEFILES += $(USB_CORE_SOURCEFILES) $(USB_ARCH_SOURCEFILES)
+
+INC ?= 0
+
+#TODO bootdata for CC2538
+ifeq "$(IMAGE)" "0"
+STARTADDRESS=0x00200000
+ADD_TRAILER=no
+#HAVE_BOOT_DATA=1
+else ifeq "$(IMAGE)" "1"
+STARTADDRESS=0x00204000
+ADD_TRAILER=yes
+#HAVE_BOOT_DATA=1
+else ifeq "$(IMAGE)" "2"
+STARTADDRESS=0x00242000
+ADD_TRAILER=yes
+#HAVE_BOOT_DATA=1
+else
+ADD_TRAILER=no
+endif
+
+ifneq ($(HAVE_BOOT_DATA),)
+CFLAGS += -DHAVE_BOOT_DATA=$(HAVE_BOOT_DATA)
+endif
+
+IMAGEVERSION ?= now
+
+ifeq ($(ADD_TRAILER), yes)
+  ifndef TRAILERTOOL
+    ${error No TRAILERTOOL defined}
+  endif
+  ifeq ($(IMAGE_TYPE),)
+    ${error IMAGE_TYPE MUST be defined when adding trailer (specifying IMAGE)}
+  endif
+  ifeq ($(PRODUCT_TYPE),)
+    PRODUCT_TYPE := $(shell awk ' /PRODUCT_TYPE_INT64/ { print $$3 }' < project-conf.h)
+  endif
+  ifeq ($(PRODUCT_TYPE),)
+    ${error PRODUCT_TYPE MUST be defined when adding trailer}
+  endif
+endif
+
+.SECONDEXPANSION:
+
+### Don't treat the .elf as intermediate
+.PRECIOUS: %.elf %.hex %.bin
+
+### Always re-build ieee-addr.o in case the command line passes a new NODEID
+FORCE:
+
+$(OBJECTDIR)/ieee-addr.o: ieee-addr.c FORCE | $(OBJECTDIR)
+	$(TRACE_CC)
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+### Compilation rules
+CUSTOM_RULE_LINK=1
+
+%.elf: $(CPU_STARTFILES) $$(CONTIKI_OBJECTFILES) %.co $(PROJECT_OBJECTFILES) $(PROJECT_LIBRARIES) $(LDSCRIPT)
+	$(TRACE_LD)
+	$(Q)$(LD) $(LDFLAGS) ${filter-out $(LDSCRIPT) %.a,$^} ${filter %.a,$^} $(TARGET_LIBFILES) -o $@
+	$(Q)$(SIZE) -Ax $@
+
+%.hex: %.elf
+	$(Q)$(OBJCOPY) -O ihex $< $@
+
+%.bin: %.elf
+	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) $< $@
+ifeq "$(ADD_TRAILER)" "yes"
+	$(TRAILERTOOL) -T $(IMAGE_TYPE) -V $(IMAGEVERSION) -I $(INC) -A $(STARTADDRESS) -P $(PRODUCT_TYPE) < $@ > $(TARGET).$(IMAGE).flash
+endif
+
+%.lst: %.elf
+	$(Q)$(OBJDUMP) $(OBJDUMP_FLAGS) $< > $@
+
+### We don't really need the .hex and .bin for the .$(TARGET) but let's make
+### sure they get built
+%.$(TARGET): %.elf %.hex %.bin
+	$(Q)cp $< $@
+
+### This rule is used to generate the correct linker script
+LDGENFLAGS += $(CFLAGS)
+LDGENFLAGS += -imacros "contiki-conf.h" -imacros "dev/cc2538-dev.h"
+LDGENFLAGS += -imacros "dev/flash.h" -imacros "cfs-coffee-arch.h"
+LDGENFLAGS += -x c -P -E
+
+# NB: Assumes LDSCRIPT was not overridden and is in $(OBJECTDIR)
+$(LDSCRIPT): $(SOURCE_LDSCRIPT) FORCE | $(OBJECTDIR)
+	$(TRACE_CC)
+	$(Q)$(CC) $(LDGENFLAGS) $< -o $@
+
+ifdef CREATERESCUEIMAGE
+$(CONTIKI_CPU)/bootloader/bootloader:
+	(cd $(CONTIKI_CPU)/bootloader && make clean all IMAGE=0)
+
+rescue-image:	$(TARGET).1.flash $(BOOTLOADER_BINARY)
+	@$(CREATERESCUEIMAGE) $(CREATERESCUEIMAGE_ARGS) -B $(BOOTLOADER_BINARY) -m $(CONTIKI_CPU)/bootloader/mfg/mfg-$(TARGET)-$(BOARD).hex -i $(TARGET).1.flash -o rescue-$(BOARD).bin
+endif

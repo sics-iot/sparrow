@@ -1,0 +1,2 @@
+MODULES += dev/cc1200 dev/dual-radio
+CONTIKI_TARGET_SOURCEFILES += cc1200-arch.c

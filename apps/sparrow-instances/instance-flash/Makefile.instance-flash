@@ -1,0 +1,3 @@
+instance-flash_src = instance-flash.c
+
+SPARROW_OAM_INSTANCES += instance_flash_primary instance_flash_backup

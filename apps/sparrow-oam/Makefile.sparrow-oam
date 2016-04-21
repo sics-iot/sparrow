@@ -1,0 +1,33 @@
+#
+# Makefile for Sparrow OAM application
+#
+#
+# To add sub-instances, add name of instance to make variable
+# SPARROW_OAM_INSTANCES
+#
+
+sparrow-oam_src = sparrow.c sparrow-oam.c sparrow-psp.c sparrow-var.c \
+	sparrow-encap.c sparrow-tlv.c instance0.c sparrow-uc.c
+CFLAGS += -DHAVE_SPARROW_OAM
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+
+CFLAGS += -DSPARROW_OAM_INSTANCES="${addsuffix $(COMMA),${addprefix &,$(SPARROW_OAM_INSTANCES)}}"
+CFLAGS += -DSPARROW_OAM_DECLARATIONS="${foreach i, $(SPARROW_OAM_INSTANCES),extern const sparrow_oam_instance_t $(i);}"
+
+CFLAGS += -DSPARROW_OAM_LOCAL_INSTANCES="${addsuffix $(COMMA),${addprefix &,$(SPARROW_OAM_LOCAL_INSTANCES)}}"
+CFLAGS += -DSPARROW_OAM_LOCAL_DECLARATIONS="${foreach i, $(SPARROW_OAM_LOCAL_INSTANCES),extern const sparrow_oam_instance_t $(i);}"
+
+CLEAN += swrevision.h
+
+.PHONY: sparrow-oam-instances
+sparrow-oam-instances:
+	@echo instance0 $(SPARROW_OAM_INSTANCES) $(SPARROW_OAM_LOCAL_INSTANCES)
+
+.PHONY: swrevision.h
+swrevision.h:
+	$(SPARROW)/tools/sparrow/getswrevision.sh
+
+$(OBJECTDIR)/sparrow.o:	swrevision.h

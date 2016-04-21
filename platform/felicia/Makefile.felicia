@@ -1,0 +1,110 @@
+# Felicia platform makefile
+
+ifndef CONTIKI
+  $(error CONTIKI not defined! You must specify where CONTIKI resides!)
+endif
+
+ifndef SPARROW
+  $(error SPARROW not defined! You must specify where SPARROW resides!)
+endif
+
+ifndef SPARROW_TOOLS
+  $(error SPARROW_TOOLS not defined! You must specify where SPARROW resides!)
+endif
+
+IMAGE_TYPE_FELICIA     = 0090da05010104f0
+IMAGE_TYPE_DONKEYJR    = 0090da05010104e0
+IMAGE_TYPE_IOT_U10     = 0090da0500000010
+IMAGE_TYPE_IOT_U10PLUS = 0090da0500000011
+IMAGE_TYPE_IOT_U42     = 0090da0501010502
+
+ifeq ($(BOARD), felicia)
+  IMAGE_TYPE = $(IMAGE_TYPE_FELICIA)
+else ifeq ($(BOARD), iot-u10)
+  IMAGE_TYPE = $(IMAGE_TYPE_IOT_U10)
+else ifeq ($(BOARD), iot-u10plus)
+  IMAGE_TYPE = $(IMAGE_TYPE_IOT_U10PLUS)
+else ifeq ($(BOARD), donkeyjr)
+  IMAGE_TYPE = $(IMAGE_TYPE_DONKEYJR)
+else ifeq ($(BOARD), iot-u42)
+  IMAGE_TYPE = $(IMAGE_TYPE_IOT_U42)
+else ifeq ($(BOARD),)
+  ${error BOARD not specified, please specify a Felicia board!}
+endif
+
+ifeq ($(IMAGE_TYPE),)
+  ${error IMAGE_TYPE not found for BOARD $(BOARD)}
+endif
+
+# Felicia should have the serial bootloader disabled
+CREATERESCUEIMAGE_ARGS = -D
+
+# Disable COFFEE file system for now.
+COFFEE=0
+
+CONTIKI_TARGET_DIRS = . dev $(BOARD)
+
+CONTIKI_TARGET_SOURCEFILES += spi-arch.c
+CONTIKI_TARGET_SOURCEFILES += ${notdir ${wildcard $(CONTIKI_TARGET_PLATFORM)/$(BOARD)/*.c}}
+
+-include $(CONTIKI_TARGET_PLATFORM)/$(BOARD)/Makefile.${notdir $(BOARD)}
+
+ifndef CONTIKI_TARGET_MAIN
+CONTIKI_TARGET_MAIN = contiki-main.c
+endif
+CONTIKI_TARGET_SOURCEFILES += $(CONTIKI_TARGET_MAIN)
+
+CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
+
+CLEAN += *.felicia *.flash symbols.h symbols.c felicia-firmware.jar
+
+### Unless the example dictates otherwise, build with code size optimizations.
+ifndef SMALL
+  SMALL = 1
+endif
+
+### Define the CPU directory
+
+CONTIKI_CPU=$(SPARROW)/cpu/cc2538
+include $(CONTIKI_CPU)/Makefile.cc2538
+
+MODULES += core/net core/net/mac core/net/llsec core/net/llsec/noncoresec
+
+EXTERNAL_MODULES += $(SPARROW)/lib/image-trailer
+
+BSL = $(CONTIKI)/tools/cc2538-bsl/cc2538-bsl.py
+
+%.upload: %.bin
+ifeq ($(wildcard $(BSL)), )
+	@echo "ERROR: Could not find the cc2538-bsl script. Please run 'git submodule update --init' and try again."
+else
+	python $(BSL) -e -w -v $<
+endif
+
+ifeq ($(HOST_OS),Windows)
+  SERIALDUMP = $(CONTIKI)/tools/sky/serialdump-windows
+else ifeq ($(HOST_OS),Darwin)
+  SERIALDUMP = $(CONTIKI)/tools/sky/serialdump-macos
+else
+  SERIALDUMP = $(CONTIKI)/tools/sky/serialdump-linux
+endif
+
+ifdef PORT
+  SERIALPORT=$(PORT)
+else
+  SERIALPORT=/dev/ttyACM0
+endif
+
+# Only for platform with dual radios such as IoT-U42
+ifdef WITH_DUAL_RADIO
+CFLAGS+=-DWITH_DUAL_RADIO=1
+endif
+
+ifdef WITH_868
+CFLAGS+=-DWITH_868=1
+endif
+
+include $(SPARROW_TOOLS)/Makefile.include
+
+login:
+	$(SERIALDUMP) -b115200 $(SERIALPORT)

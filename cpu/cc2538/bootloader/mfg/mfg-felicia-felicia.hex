@@ -1,0 +1,99 @@
+#
+# Manufacturing area for target felicia variant felicia.
+#
+
+# magic
+01595de1
+
+#number of images 
+02
+
+# one byte extra info enum; 00 = no extra info, 01 = front panel config follows last image
+01
+
+# two bytes reserved
+0000
+
+# 64bit capabilities (host byte order integer)
+0000000000000000
+
+# 128 bit mfg key
+ffffffffffffffffffffffffffffffff
+
+################################################################
+# First image, All integers in host byte order.
+# image type
+f004010105da9000
+
+
+
+# start Address 0x00204000
+00402000
+# length 0x0003e000
+00e00300
+
+# number of sectors, zero for "erase when dirty"
+00
+# Sector indexes not used for zero sectors.
+000000000000000000000000000000
+
+
+################################################################
+# Second image, All integers in host byte order.
+# image type
+f004010105da9000
+
+# start address 0x00242000
+00202400
+# length 0x0003e000
+00d00300
+
+# number of sectors, zero for "erase when dirty"
+00
+# Sector indexes not used for zero sectors.
+000000000000000000000000000000
+
+
+######################################################
+
+
+## ## ## Extra info; frontpanel configuration ## ## ##
+
+# 1 byte led config bit field.
+# 0x01 = do led indication.
+# 0x02 = do led port configuration.
+03
+
+# 1 byte push button config bit field.
+# 0x01 = read push button.
+# 0x02 = configure button port.
+01
+
+# 2 bytes reserved for future use.
+0000
+
+# port C direction config register address 0x400DB400.
+# LED config address.
+00B40D40  
+# LED config value.
+03000000  
+
+
+# port C data register address 0x400DB00C (mask 0x03 << 2).
+0CB00D40
+# LED ON value green = 01000000, yellow = 02000000
+01000000
+# LED OFF value
+00000000
+
+# push button config address
+00000000
+# push button config value
+00000000
+
+# read address button port D6 0x400DC000.
+00C00D40
+# mask 0x00000040.
+40000000
+# button pressed value after mask.
+00000000

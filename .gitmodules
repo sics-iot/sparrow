@@ -1,0 +1,5 @@
+[submodule "contiki"]
+	path = contiki
+	url = https://github.com/contiki-os/contiki.git
+	branch = master
+	ignore = dirty

@@ -1,0 +1,45 @@
+#
+# Copyright (c) 2016, SICS, Swedish ICT.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   1. Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#   2. Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#   3. Neither the name of the copyright holders nor the
+#      names of its contributors may be used to endorse or promote products
+#      derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+#
+# YAML file for a LEDs instance in the Sparrow Application Layer.
+#
+id: 0x0090DA030201001E
+name: leds
+label: LEDs
+variables:
+  - { name: number_of_leds,  id: 0x100, size: 4, type: int, op: r }
+  - { name: led_control,     id: 0x101, size: 4, type: int, op: rw}
+  - { name: led_set,         id: 0x102, size: 4, type: int, op: w }
+  - { name: led_clear,       id: 0x103, size: 4, type: int, op: w }
+  - { name: led_toggle,      id: 0x104, size: 4, type: int, op: w }
+  - { name: led_state,       id: 0x105, size: 4, type: array, op: rw, flag: no-check}
+  - { name: led_state_count, id: 0x106, size: 4, type: array, op: r, flag: no-check}
+
+def-enum:
+   - { name: leds_colors, values: {RED: 1, GREEN: 2, BLUE: 3, YELLOW: 4} }

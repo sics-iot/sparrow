@@ -1,0 +1,3 @@
+instance-nstats_src = instance-nstats.c
+
+SPARROW_OAM_INSTANCES += instance_nstats

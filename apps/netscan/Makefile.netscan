@@ -1,0 +1,3 @@
+netscan_src = netscan.c netscan-default-selector.c
+
+CFLAGS += -DHAVE_NETSCAN=1

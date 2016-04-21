@@ -1,0 +1,58 @@
+ifndef SPARROW_TOOLS
+  $(error SPARROW_TOOLS not defined! You must specify where SPARROW resides!)
+endif
+
+ifneq ($(CONTIKI_PROJECT),)
+images:
+	$(MAKE) ${firstword $(CONTIKI_PROJECT)}.images
+endif
+
+%.images: swrevision.h
+	@rm -f ${@:.images=.$(TARGET)} $(TARGET).bin
+	$(MAKE) ${@:.images=.$(TARGET)} IMAGE=1
+	@rm -f ${@:.images=.$(TARGET)} $(TARGET).bin
+	$(MAKE) ${@:.images=.$(TARGET)} IMAGE=2
+	@echo "Creating image archive for $@ INC=$(INC)"
+	@$(SPARROW_TOOLS)/create-image-archive.sh -v $(TARGET)
+
+ifndef DST
+DST=127.0.0.1
+endif
+
+discoverv:
+	$(SPARROW_TOOLS)/tlvdiscovery.py -v $(DST)
+
+discover:
+	$(SPARROW_TOOLS)/tlvdiscovery.py $(DST)
+
+discover-local:
+	$(SPARROW_TOOLS)/tlvdiscovery.py 127.0.0.1
+
+discoverv-local:
+	$(SPARROW_TOOLS)/tlvdiscovery.py -v 127.0.0.1
+
+status:
+ifeq ($(DST),)
+	@echo "ERROR: please specify target IPv6 address as DST=<IPv6 address>"
+else
+	$(SPARROW_TOOLS)/tlvupgrade.py -s -v -a $(DST)
+endif
+
+upload:	$(TARGET)-firmware.jar
+ifeq ($(DST),)
+	@echo "ERROR: please specify target IPv6 address as DST=<IPv6 address>"
+else
+	$(SPARROW_TOOLS)/tlvupgrade.py -b 128 -i $< -v -a $(DST)
+endif
+
+# Single hop nodes can be upgraded faster than multi hop nodes
+upload-fast:	$(TARGET)-firmware.jar
+ifeq ($(DST),)
+	@echo "ERROR: please specify target IPv6 address as DST=<IPv6 address>"
+else
+	$(SPARROW_TOOLS)/tlvupgrade.py -b 512 -i $< -v -a $(DST)
+endif
+
+# For local upgrade of serial radios
+upload-local:	$(TARGET)-firmware.jar
+	$(SPARROW_TOOLS)/tlvupgrade.py -b 512 -i $< -v -a 127.0.0.1

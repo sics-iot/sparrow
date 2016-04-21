@@ -1,0 +1,93 @@
+#
+# Copyright (c) 2016, SICS, Swedish ICT.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   1. Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#   2. Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#   3. Neither the name of the copyright holders nor the
+#      names of its contributors may be used to endorse or promote products
+#      derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+#
+# YAML file for instance 0 in the Sparrow Application Layer.
+#
+id: 0x0000000000000000
+name: 0
+label: Generic
+variables:
+  - { name: unit controller watchdog,
+      id: 0x0c0, type: int, size: 4, op: rw }
+  - { name: unit controller status,
+      id: 0x0c1, type: int, size: 4, op: r  }
+  - { name: unit controller address,
+      id: 0x0c2, type: int, size: 32, op: rw }
+  - { name: communication style,
+      id: 0x0c3, type: int, size: 4, op: r  }
+  - { name: configuration status,
+      id: 0x0c8, type: int, size: 4, op: r  }
+  - { name: unit boot timer,
+      id: 0x0c9, type: int, size: 8, op: r  }
+  - { name: hardware reset,
+      id: 0x0ca, type: int, size: 4, op: w  }
+  - { name: read this counter,
+      id: 0x0cb, type: int, size: 4, op: r  }
+  - { name: sw revision,
+      id: 0x0cc, type: int, size: 16, op: r }
+  - { name: tlv grouping,
+      id: 0x0cd, type: int, size: 4, op: rw }
+  - { name: location id,
+      id: 0x0ce, type: int, size: 4, op: rw }
+  - { name: owner id,
+      id: 0x0cf, type: int, size: 4, op: rw }
+  - { name: sleep default awake time,
+      id: 0x0d0, type: int, size: 4, op: r  }
+  - { name: chassis capabilities,
+      id: 0x0e0, type: int, size: 8, op: r  }
+  - { name: chassis bootloader version,
+      id: 0x0e1, type: int, size: 4, op: r  }
+  - { name: chassis factory default,
+      id: 0x0e2, type: int, size: 4, op: w  }
+  - { name: time since last good uc rx,
+      id: 0x0e3, type: int, size: 4, op: r  }
+  - { name: identify chassis,
+      id: 0x0e4, type: int, size: 4, op: rw }
+  - { name: reset cause,
+      id: 0x0e5, type: int, size: 4, op: rw }
+  - { name: received oam pdus,
+      id: 0x0e6, type: int, size: 4, op: r  }
+  - { name: transmitted oam pdus,
+      id: 0x0e7, type: int, size: 4, op: r  }
+  - { name: transmitted event oam pdus,
+      id: 0x0e8, type: int, size: 4, op: r  }
+  - { name: chassis info highlights,
+      id: 0x0e9, type: int, size: 4, op: r  }
+  - { name: chassis activity level,
+      id: 0x0ea, type: enum, size: 4, op: rw }
+  - { name: chassis restart netselect,
+      id: 0x0eb, type: int, size: 4, op: w  }
+  - { name: chassis activity cycles,
+      id: 0x0ec, type: int, size: 4, op: rw }
+  - { name: chassis activity command,
+      id: 0x0ed, type: int, size: 4, op: w  }
+  - { name: chassis wakeupp info,
+      id: 0x0ee, type: int, size: 4, op: r  }
+  - { name: psp portal status,
+      id: 0x10d, type: int, size: 4, op: r  }

@@ -1,0 +1,15 @@
+ifndef SPARROW
+  ${error SPARROW not defined! You must specify where SPARROW resides}
+endif
+
+SPARROW_TOOLS=$(SPARROW)/tools/sparrow
+
+SPARROWDIRS += $(SPARROW)/core ${addprefix $(SPARROW)/core/,dev net net/ip net/ipv6 net/rpl net/mac sys lib}
+CONTIKIDIRS += $(SPARROWDIRS)
+CONTIKI_SOURCEFILES += ${notdir ${wildcard ${addsuffix /*.c,$(SPARROWDIRS)}}}
+
+APPDIRS     += $(SPARROW)/apps
+TARGETDIRS  += $(SPARROW)/platform
+
+# Include sparrow custom version of Contiki Makefile.include
+include $(SPARROW)/Makefile.include

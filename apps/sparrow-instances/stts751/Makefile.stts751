@@ -1,0 +1,5 @@
+stts751_src = stts751.c
+
+CFLAGS += -DHAVE_STTS751
+
+SPARROW_OAM_INSTANCES += stts751
