@@ -41,6 +41,33 @@ def get_flash(zip, image):
             return info
     return None
 
+def get_manifest_data(zip):
+    f = zip.open('META-INF/MANIFEST.MF')
+    lines = f.readlines()
+    image = 0
+    data = {}
+    for l in lines:
+        kv = l.lower().split(':')
+        if len(kv) != 2:
+            image = 0
+        else:
+            k = kv[0].strip()
+            v = kv[1].strip()
+            if k == 'producttype':
+                data['producttype'] = v
+            elif k == 'name':
+                if '1.flash' in v:
+                    image = 1
+                elif '2.flash' in v:
+                    image = 2
+                else:
+                    image = 0
+            elif k == 'imagetype':
+                if image != 0:
+                    data['image.' + str(image) + '.type'] = v
+    f.close()
+    return data
+
 def get_image_crc32(instance, host, port):
     t = tlvlib.create_get_tlv32(instance, tlvlib.VARIABLE_IMAGE_CRC32)
     enc,tlvs = tlvlib.send_tlv(t, host, port)
@@ -145,7 +172,6 @@ parser.add_argument("-b", help="block size (default: %(default)s)",
 parser.add_argument("-v", action="store_true", help="verbose output")
 
 args = parser.parse_args()
-cmd = 'upgrade'
 keep_running = False
 
 if args.i:
@@ -170,10 +196,7 @@ if args.v:
 if args.k:
     keep_running = True
 
-if args.s:
-    cmd = 'verify'
-
-if cmd == 'upgrade':
+if not args.s:
     if not firmware:
         print "Specify image file"
         parser.print_help()
@@ -183,8 +206,9 @@ if cmd == 'upgrade':
     zip = zipfile.ZipFile(file)
 
 d = tlvlib.discovery(host, port)
+producttype = "%016x"%d[0][1]
 print "---- Upgrading ----"
-print "Product label:", d[0][0], " type: %016x"%d[0][1], " instances:", len(d[1])
+print "Product label:", d[0][0]," type:",producttype,"instances:", len(d[1])
 print "Booted at:",tlvlib.get_start_ieee64_time_as_string(d[0][2]),"-",tlvlib.convert_ieee64_time_to_string(d[0][2])
 
 i = 1
@@ -198,40 +222,67 @@ for data in d[1]:
         enc, tlvs = tlvlib.send_tlv([t1,t2,t3], host, port)
         tlv = tlvs[0]
         tlvstatus = tlvs[1]
+        tlvtype = tlvs[2]
         print "\tVersion:    %016x"%tlv.int_value, "  ", tlvlib.parse_image_version(tlv.int_value), "inc:", str(tlv.int_value & 0x1f)
-        print "\tImage Type: %016x"%tlvs[2].int_value,"   Status:", tlvlib.get_image_status_as_string(tlvstatus.int_value)
+        print "\tImage Type: %016x"%tlvtype.int_value,"   Status:", tlvlib.get_image_status_as_string(tlvstatus.int_value)
         if (tlvstatus.int_value & tlvlib.IMAGE_STATUS_ACTIVE) == 0:
             upgrade = i
             label = data[1]
             upgrade_status = tlvstatus.int_value
             upgrade_version = tlv.int_value
+            upgrade_type = binascii.hexlify(tlvtype.value)
+            if label == "Primary firmware":
+                upgrade_image = 1
+            elif label == "Backup firmware":
+                upgrade_image = 2
+            else:
+                upgrade_image = 0
     i = i + 1
 
-if cmd == 'upgrade' and upgrade > 0:
-    zfile = None
-    if label == "Primary firmware":
-        zfile = get_flash(zip, 1)
-    if label == "Backup firmware":
-        zfile = get_flash(zip, 2)
+if args.s:
+    # Only status. Done.
+    exit()
 
-    if zfile is not None:
-        data = zip.read(zfile)
-        print "Upgrading instance", upgrade, label, "with image", zfile.filename," (" + str(len(data)) + " bytes)"
-        if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
-            print "Erasing image",upgrade
-            if not do_erase(upgrade, host, port):
-                print "ERROR: failed to erase image"
-                exit()
-        if not do_upgrade(data, upgrade, host, port, block_size):
-            print "ERROR: failed to write firmware file"
-            exit()
+if upgrade == 0 or upgrade_image == 0:
+    print "ERROR: no unused image found in the device"
+    exit()
 
-        upgrade_status = get_image_status(upgrade, host, port)
-        if not upgrade_status:
-            print "ERROR: failed to verify upgrade status"
-            exit()
-        if cmd == 'upgrade' and upgrade_status == tlvlib.IMAGE_STATUS_WRITABLE:
-            # No errors, status ok
-            print "New image OK. Rebooting to new image."
-            if not do_reboot(host, port):
-                print "ERROR: failed to reboot to new image"
+manifest = get_manifest_data(zip)
+if manifest['producttype'] != producttype:
+    print "WARNING: different product type in firmware file and in device:",manifest['producttype'],"!=",producttype
+
+imagetype = manifest['image.' + str(upgrade_image) + '.type']
+if imagetype != upgrade_type:
+    print "ERROR: wrong image type in firmware file:",imagetype,"!=",upgrade_type
+    exit()
+
+zfile = get_flash(zip, upgrade_image)
+if zfile is None:
+    print "ERROR: could not find firmware data in firmware file"
+    exit()
+
+data = zip.read(zfile)
+print "Upgrading instance", upgrade, label, "with image", zfile.filename," (" + str(len(data)) + " bytes)"
+if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
+    print "Erasing image",upgrade
+    if not do_erase(upgrade, host, port):
+        print "ERROR: failed to erase image"
+        exit()
+
+if not do_upgrade(data, upgrade, host, port, block_size):
+    print "ERROR: failed to write firmware file"
+    exit()
+
+upgrade_status = get_image_status(upgrade, host, port)
+if not upgrade_status:
+    print "ERROR: failed to verify upgrade status"
+    exit()
+
+if upgrade_status != tlvlib.IMAGE_STATUS_WRITABLE:
+    print "ERROR: failed to upgrade image:", upgrade_status
+    exit()
+
+# No errors, status ok
+print "New image OK. Rebooting to new image."
+if not do_reboot(host, port):
+    print "ERROR: failed to reboot to new image"
