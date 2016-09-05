@@ -45,7 +45,6 @@ def get_version(inc):
     return ''.join(version)
 
 def get_crc(data):
-#    crc32 = binascii.crc32(data[0:-4]) & 0xffffffff
     crc32 = binascii.crc32(data) & 0xffffffff
     return crc32
 
