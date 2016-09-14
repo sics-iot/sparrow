@@ -1,7 +1,6 @@
-/*
- * Copyright (c) 2015-2016, Yanzi Networks AB.
+/* Copyright (c) 2015, Yanzi Networks AB.
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *    1. Redistributions of source code must retain the above copyright
@@ -25,28 +24,9 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+#include "net/ip/uip.h"
 
-#define USB_SERIAL_CONF_ENABLE 1
-#define DBG_CONF_USB 1
-
-#define PRODUCT_TYPE_INT64 0x0090DA0301010501ULL
-#define PRODUCT_LABEL "IoT-U10"
-
-/* Network statistics */
-#define RPL_CONF_STATS 1
-/* #define HANDLER_802154_CONF_STATS 1 */
-
-/* #define RPL_CALLBACK_PARENT_SWITCH \ */
-/*   instance_nstats_preferred_parent_callback */
-
-/* CoAP */
-#undef REST_MAX_CHUNK_SIZE
-#define REST_MAX_CHUNK_SIZE 256
-
-#define WEBSERVER_CONF_CFS_PATHLEN 24
-
-#endif /* PROJECT_CONF_H_ */
+int sprint_addr6(char *buf, const uip_ipaddr_t *addr);

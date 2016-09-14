@@ -1,0 +1,44 @@
+Libcoap client demo:
+-------------------------------------------------------------------------------
+Use the following instructions in order to run a simple coap-client demo from command line [Linux terminal]
+
+1. Download and extract libcoap-4.1.1.tar.gz
+2. Install libcoap in your home directory by calling ./configure and ./make
+3. Switch to the example folder, where the coap-client and coap-server application should be already built.
+4. Run the coap-client with no arguments: this will show the application usage.
+5. Start the border router and the remote node as usual.
+6. GET the well-known resource at the remote node, to discover the installed resoures [the IPv6 address should be the address of the remote node]:
+      ./coap-client -m get coap://[aaaa::212:4b00:40f:595a]/.well-known/core
+7. GET any installed resource in the same way. Currently only text/plain type is supported, so the CLI command is simple:
+      ./coap-client -m get coap://[aaaa::212:4b00:40f:595a]/toggle-led
+   Here, we ask for the status of the LED; the resource is called "toggle-led"
+8. PUSH or PUT requests for installed resources are executed similarly. For example:
+      ./coap-client -m put -e led=toggle coap://[aaaa::212:4b00:40f:595a]/toggle-led
+   Here we request a toggle of the device LED
+
+--------------------------------------------------------------------------------
+
+Resources currently installed:
+
+1. Toggle the user LED:
+
+   Get the status of the LED:
+     ./coap-client -m get coap://[aaaa::212:4b00:40f:595a]/toggle-led
+
+   Toggle the LED:
+     ./coap-client -m put e- led=toogle coap://[aaaa::212:4b00:40f:595a]/toggle-led
+
+2. Get the list of IPv6 neighbors of an IPv6 node:
+     ./coap-client -m get coap://[aaaa::212:4b00:40f:595a]/ipv6/neighbors
+
+3. Get specific  RPL information:
+
+  - Address of the parent node:
+     ./coap-client -m post -e info=parent coap://[aaaa::212:4b00:40f:595a]/rpl/info
+
+  - Rank of a node:
+     ./coap-client -m post -e info=rank coap://[aaaa::212:4b00:40f:595a]/rpl/info
+
+  - Link metric of node-parent link:
+     ./coap-client -m post -e info=link_metric coap://[aaaa::212:4b00:40f:595a]/rpl/info
+

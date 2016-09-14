@@ -1,0 +1,5 @@
+ifdef COAP_NO_SENSORS
+  resources-common_src = resource-print-engine.c print-rpl-info.c
+else
+  resources-common_src = resource-print-engine.c print-temperature.c print-rpl-info.c
+endif
