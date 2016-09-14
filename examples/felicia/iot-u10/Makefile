@@ -16,5 +16,9 @@ APPS += sparrow-instances/instance-leds
 APPS += sparrow-instances/instance-button
 APPS += sparrow-instances/instance-nstats
 
+ifdef WITH_NETSCAN
+APPS += netscan
+endif
+
 CONTIKI_WITH_IPV6 = 1
 include $(SPARROW)/Makefile.sparrow
