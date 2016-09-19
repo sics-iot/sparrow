@@ -55,10 +55,10 @@ def tlvled(ws, ip, led):
         t1 = tlvlib.create_set_tlv32(de.leds_instance, tlvlib.VARIABLE_LED_TOGGLE, 1 << int(led))
         try:
             enc, tlvs = tlvlib.send_tlv(t1, ip)
-            if tlvs[0].Error == 0:
+            if tlvs[0].error == 0:
                 print "LED ", led, " toggle."
             else:
-                print "LED Set error", tlvs[0].Error
+                print "LED Set error", tlvs[0].error
         except socket.timeout:
             print "LED No response from node", ip
             ws.sendMessage(json.dumps({"error":"No response from node " + ip}))
@@ -72,14 +72,14 @@ def tlvtemp(ws, ip):
             t1 = tlvlib.create_get_tlv32(instance, tlvlib.VARIABLE_TEMPERATURE)
             try:
                 enc, tlvs = tlvlib.send_tlv(t1, ip)
-                if tlvs[0].Error == 0:
+                if tlvs[0].error == 0:
                     temperature = tlvs[0].int_value
                     if temperature > 100000:
                         temperature = round((temperature - 273150) / 1000.0, 2)
                     print "\tTemperature:",temperature,"(C)"
                     ws.sendMessage(json.dumps({"temp":temperature,"address":ip}))
                 else:
-                    print "\tTemperature error", tlvs[0].Error
+                    print "\tTemperature error", tlvs[0].error
             except socket.timeout:
                 print "Temperature - no response from node", ip
                 ws.sendMessage(json.dumps({"error":"No response from node " + ip}))
