@@ -434,7 +434,7 @@ serial_radio_send_packet(uint8_t id)
   /* parse frame before sending to get addresses, etc. */
   packet_ids[packet_pos] = id;
 
-  no_framer.parse();
+  NETSTACK_FRAMER.parse();
   NETSTACK_MAC.send(packet_sent, &packet_ids[packet_pos]);
 
   packet_pos++;
