@@ -38,6 +38,14 @@ static unsigned char usb_flags = 0;
 static struct process *global_user_event_pocess = NULL;
 static unsigned int global_user_events = 0;
 
+static uint8_t usb_attached = 0;
+
+uint8_t 
+is_usb_attached(void)
+{
+  return usb_attached;
+}
+
 void
 usb_set_global_event_process(struct process *p)
 {
@@ -536,6 +544,7 @@ PROCESS_THREAD(usb_process, ev, data)
                 while(usb_send_pending(0));
                 usb_arch_set_address(LOW_BYTE(usb_setup_buffer.wValue));
                 usb_flags &= ~USB_FLAG_ADDRESS_PENDING;
+                usb_attached = 1;
               }
               submit_setup();
             } else if(ctrl_buffer.id == OUT_ID) {

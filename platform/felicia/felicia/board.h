@@ -49,10 +49,10 @@
 #include "dev/gpio.h"
 #include "dev/nvic.h"
 
-#define PLATFORM_HAS_LEDS    1
-#define PLATFORM_HAS_BUTTON  1
+#define PLATFORM_HAS_LEDS    0
+#define PLATFORM_HAS_BUTTON  0
 #define PLATFORM_HAS_SLIDE_SWITCH 0
-#define PLATFORM_HAS_SENSORS 1
+#define PLATFORM_HAS_SENSORS 0
 
 #define LEDS_YELLOW          1
 #define LEDS_GREEN           2
@@ -63,12 +63,12 @@
 /*---------------------------------------------------------------------------*/
 /** \name USB configuration
  *
- * The USB pullup is driven by PC2
+ * The USB pullup is driven by PC0 (Felicia = TI CC2538EM)
  *
  * @{
  */
 #define USB_PULLUP_PORT          GPIO_C_NUM
-#define USB_PULLUP_PIN           2 /* For Yanzi Felicia board */
+#define USB_PULLUP_PIN           0 /* PC0 = CC2538EM */
 #define USB_PULLUP_ACTIVE_HIGH   1
 
 /** @} */

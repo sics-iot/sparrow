@@ -132,6 +132,21 @@ void MY_APP_INIT_FUNCTION(void);
 #ifdef HAVE_NETSCAN
 #include "netscan.h"
 #endif /* HAVE_NETSCAN */
+
+#if PLATFORM_WITH_DUAL_MODE == 1
+/* The state of the operation mode is stored in contiki-main */
+static dual_mode_op_mode_t op_mode = DUAL_MODE_OP_MODE_STANDARD;
+/*---------------------------------------------------------------------------*/
+/*
+ * Return the current operation mode of the mote.
+ */
+dual_mode_op_mode_t
+dual_mode_get_op_mode(void)
+{
+  return op_mode;
+}
+/*---------------------------------------------------------------------------*/
+#endif /* PLATFORM_WITH_DUAL_MODE */
 /*---------------------------------------------------------------------------*/
 /** \brief Board specific iniatialisation */
 void board_init(void);
@@ -173,6 +188,10 @@ set_rf_params(void)
 int
 main(void)
 {
+#if PLATFORM_WITH_DUAL_MODE && USB_SERIAL_CONF_ENABLE
+  struct timer detect_usb_timer;
+#endif
+
   nvic_init();
   ioc_init();
   sys_ctrl_init();
@@ -225,6 +244,24 @@ main(void)
   process_start(&etimer_process, NULL);
   ctimer_init();
 
+#if PLATFORM_WITH_DUAL_MODE && USB_SERIAL_CONF_ENABLE
+  /* wait for USB enumeration to happen for 5 seconds */
+  timer_set(&detect_usb_timer, CLOCK_SECOND * 5);
+
+    do {
+      uint8_t is_usb_attached(void);
+
+      process_run();
+
+      if(is_usb_attached())
+      {
+         /* switch to serial radio mode if the usb is attached to host */
+         op_mode = DUAL_MODE_OP_MODE_SERIAL_RADIO;
+         break;
+      }
+    } while(!timer_expired(&detect_usb_timer));
+#endif
+
   queuebuf_init();
 
   energest_init();
@@ -261,6 +298,14 @@ main(void)
 #if NETSTACK_CONF_WITH_IPV6
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
   process_start(&tcpip_process, NULL);
+#if PLATFORM_WITH_DUAL_MODE == 1
+  if(op_mode == DUAL_MODE_OP_MODE_STANDARD) {
+    /* tcpip_process does not start when in serial-radio mode */
+    process_start(&tcpip_process, NULL);
+  }
+#else /* PLATFORM_WITH_DUAL_MODE == 1 */
+  process_start(&tcpip_process, NULL);
+#endif /* PLATFORM_WITH_DUAL_MODE == 1 */
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 
   adc_init();
