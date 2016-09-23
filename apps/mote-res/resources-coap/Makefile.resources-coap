@@ -1,0 +1,5 @@
+ifdef COAP_NO_SENSORS
+  resources-coap_src = resource-ipv6-neighbors.c resource-ipv6-routes.c resource-rpl-info.c
+else
+  resources-coap_src = resource-temperature.c resource-ipv6-neighbors.c resource-ipv6-routes.c resource-rpl-info.c resource-led.c resource-button-event.c
+endif

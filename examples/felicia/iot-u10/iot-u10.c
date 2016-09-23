@@ -28,6 +28,12 @@
  */
 
 #include "contiki.h"
+#if WITH_WEBSERVER
+#include "node-webserver-simple.h"
+#endif
+#include "resources-coap.h"
+#include "dev/button-sensor.h"
+#include "dev/slide-switch.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -46,9 +52,54 @@ PROCESS_THREAD(felicia_main, ev, data)
 
   PROCESS_BEGIN();
 
+  /* Initialize the CoAP server and activate resources */
+  rest_init_engine();
+#if PLATFORM_HAS_LEDS
+  rest_activate_resource(&resource_led, (char *)"led");
+  rest_activate_resource(&resource_led0, (char *)"led/0");
+  rest_activate_resource(&resource_led1, (char *)"led/1");
+#endif
+  rest_activate_resource(&resource_ipv6_neighbors, (char *)"ipv6/neighbors");
+  rest_activate_resource(&resource_rpl_info, (char *)"rpl-info");
+  rest_activate_resource(&resource_rpl_parent, (char *)"rpl-info/parent");
+  rest_activate_resource(&resource_rpl_rank, (char *)"rpl-info/rank");
+  rest_activate_resource(&resource_rpl_link_metric, (char *)"rpl-info/link-metric");
+
+#if PLATFORM_HAS_SLIDE_SWITCH
+    SENSORS_ACTIVATE(slide_switch_sensor);
+#endif
+
+#if PLATFORM_HAS_BUTTON
+    SENSORS_ACTIVATE(button_sensor);
+    rest_activate_resource(&resource_push_button_event, (char *)"push-button");
+#endif
+
+#if PLATFORM_HAS_SENSORS
+    rest_activate_resource(&resource_temperature, (char *)"temperature");
+#endif
+
+#if WITH_WEBSERVER
+  PROCESS_PAUSE();
+  process_start(&node_webserver_simple_process, NULL);
+#endif
+
   while(1) {
     etimer_set(&timer, CLOCK_SECOND * 5);
     PROCESS_WAIT_EVENT();
+
+#if PLATFORM_HAS_BUTTON
+      if(ev == sensors_event && data == &button_sensor) {
+        resource_push_button_event.trigger();
+        PRINTF("Button pressed!\n");
+      }
+#endif
+
+#if PLATFORM_HAS_SLIDE_SWITCH
+      if(ev == sensors_event && data == &slide_switch_sensor) {
+        PRINTF("Sliding switch is %s\n",
+               slide_switch_sensor.value(0) ? "on" : "off");
+      }
+#endif
   }
 
   PROCESS_END();

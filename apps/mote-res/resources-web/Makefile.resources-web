@@ -1,0 +1,7 @@
+resources-web_src += node-webserver-simple.c
+CFLAGS += -DWITH_WEBSERVER=1
+
+# Include the httpd implementation in the build tree and search path
+CONTIKI_SOURCEFILES += httpd-simple.c
+CONTIKIDIRS +=  $(CONTIKI)/examples/ipv6/rpl-border-router
+
