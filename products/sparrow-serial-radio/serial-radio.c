@@ -188,18 +188,18 @@ test_callback(void *ptr)
 }
 #endif /* HAVE_SERIAL_RADIO_UART */
 /*---------------------------------------------------------------------------*/
-#if defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE)
+#if defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT))
 /* Use different product name for USB on platform Felicia */
 struct product {
   uint8_t size;
   uint8_t type;
-  uint16_t string[18];
+  uint16_t string[20];
 };
 static const struct product product = {
   sizeof(product),
   3,
   {
-    'Y','a','n','z','i',' ','S','e','r','i','a','l',' ','R','a','d','i','o'
+    'S','p','a','r','r','o','w',' ','S','e','r','i','a','l',' ','R','a','d','i','o'
   }
 };
 uint8_t *

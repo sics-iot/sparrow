@@ -41,8 +41,7 @@
 
 #endif /* CONTIKI_TARGET_FELICIA || CONTIKI_TARGET_ZOUL_SPARROW */
 
-#ifdef CONTIKI_TARGET_FELICIA
-
+#if defined(CONTIKI_TARGET_FELICIA) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT))
 #ifndef SLIP_ARCH_CONF_USB
 
 #ifndef WITH_UART
@@ -68,7 +67,7 @@
 /* Use different product description for USB */
 #define USB_SERIAL_GET_PRODUCT_DESCRIPTION serial_radio_get_product_description
 
-#endif /* CONTIKI_TARGET_FELICIA */
+#endif /* defined(CONTIKI_TARGET_FELICIA) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT)) */
 
 /* Get rid of address filter in NULLRDC - assume radio filter */
 #define NULLRDC_CONF_ADDRESS_FILTER      0
