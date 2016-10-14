@@ -20,11 +20,11 @@ APPS += rest-engine
 APPS += mote-res/resources-coap
 APPS += mote-res/resources-common
 
-ifdef WITH_NETSCAN
+ifdef MAKE_WITH_NETSCAN
 APPS += netscan
 endif
 
-ifdef WITH_WEBSERVER
+ifdef MAKE_WITH_WEBSERVER
 APPS += mote-res/resources-web
 endif
 
