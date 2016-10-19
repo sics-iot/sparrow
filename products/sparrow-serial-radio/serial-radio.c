@@ -188,7 +188,7 @@ test_callback(void *ptr)
 }
 #endif /* HAVE_SERIAL_RADIO_UART */
 /*---------------------------------------------------------------------------*/
-#ifdef CONTIKI_TARGET_FELICIA
+#if defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE)
 /* Use different product name for USB on platform Felicia */
 struct product {
   uint8_t size;
@@ -207,7 +207,7 @@ serial_radio_get_product_description(void)
 {
   return (uint8_t *)&product;
 }
-#endif /* CONTIKI_TARGET_FELICIA */
+#endif /* defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE)*/
 /*---------------------------------------------------------------------------*/
 static sniffer_rdc_filter_op_t
 sniffer_callback(void)
@@ -434,7 +434,7 @@ serial_radio_send_packet(uint8_t id)
   /* parse frame before sending to get addresses, etc. */
   packet_ids[packet_pos] = id;
 
-  no_framer.parse();
+  NETSTACK_FRAMER.parse();
   NETSTACK_MAC.send(packet_sent, &packet_ids[packet_pos]);
 
   packet_pos++;

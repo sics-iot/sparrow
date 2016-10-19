@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Yanzi Networks AB.
+ * Copyright (c) 2015, Yanzi Networks AB.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,28 +25,26 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+#ifndef RESOURCES_COAP_COMMON_H_
+#define RESOURCES_COAP_COMMON_H_
 
-#define USB_SERIAL_CONF_ENABLE 1
-#define DBG_CONF_USB 1
+#include "rest-engine.h"
+#include "resource-print-engine.h"
+#include "net/ip/uip.h"
 
-#define PRODUCT_TYPE_INT64 0x0090DA0301010501ULL
-#define PRODUCT_LABEL "IoT-U10"
+extern resource_t resource_led, \
+                  resource_led0, \
+                  resource_led1, \
+                  resource_ipv6_neighbors, \
+                  resource_ipv6_routes, \
+                  resource_push_button_event, \
+                  resource_temperature, \
+                  resource_rpl_info, \
+                  resource_rpl_parent, \
+                  resource_rpl_rank, \
+                  resource_rpl_link_metric;
 
-/* Network statistics */
-#define RPL_CONF_STATS 1
-/* #define HANDLER_802154_CONF_STATS 1 */
-
-/* #define RPL_CALLBACK_PARENT_SWITCH \ */
-/*   instance_nstats_preferred_parent_callback */
-
-/* CoAP */
-#undef REST_MAX_CHUNK_SIZE
-#define REST_MAX_CHUNK_SIZE 256
-
-#define WEBSERVER_CONF_CFS_PATHLEN 24
-
-#endif /* PROJECT_CONF_H_ */
+#endif /* RESOURCES_COAP_COMMON_H_ */

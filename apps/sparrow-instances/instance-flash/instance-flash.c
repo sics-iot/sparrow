@@ -89,6 +89,7 @@ flash_process_request(const sparrow_oam_instance_t *instance,
   const image_info_t *images;
   const image_info_t *image = NULL;
   uint8_t *write_enable;
+  uint8_t image_index = 0;
 
   images = image_trailer_get_images();
 
@@ -101,10 +102,12 @@ flash_process_request(const sparrow_oam_instance_t *instance,
     /* PRIMARY_FLASH_INSTANCE */
     image = &images[0];
     write_enable = &primaryWrite_enable;
+    image_index = 1;
   } else if(instance == &instance_flash_backup) {
     /* BACKUP_FLASH_INSTANCE */
     image = &images[1];
     write_enable = &backupWrite_enable;
+    image_index = 2;
   } else {
     return sparrow_tlv_write_reply_error(request, SPARROW_TLV_ERROR_UNKNOWN_INSTANCE, reply, len);
   }
@@ -126,7 +129,7 @@ flash_process_request(const sparrow_oam_instance_t *instance,
         return sparrow_tlv_write_reply_error(request, error, reply, len);
       }
     } else if(request->variable == VARIABLE_WRITE_CONTROL) {
-      if(request->instance == SPARROW_DEVICE.get_running_image()) {
+      if(!image_index || image_index == SPARROW_DEVICE.get_running_image()) {
         return sparrow_tlv_write_reply_error(request, SPARROW_TLV_ERROR_WRITE_ACCESS_DENIED, reply, len);
       }
       local32 = request->data[0] << 24;
