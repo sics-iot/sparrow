@@ -38,9 +38,9 @@
  */
 #include "contiki.h"
 #include "reg.h"
-#include "flash.h"
-#include "sys-ctrl.h"
-#include "rom-util.h"
+#include "dev/flash.h"
+#include "dev/sys-ctrl.h"
+#include "dev/rom-util.h"
 
 #include <stdint.h>
 /*---------------------------------------------------------------------------*/

@@ -30,8 +30,9 @@
 #include "resources-coap.h"
 #include "contiki-net.h"
 #include "rest-engine.h"
-#include "rpl.h"
-#include "rpl-private.h"
+#include "net/rpl/rpl.h"
+#include "net/rpl/rpl-private.h"
+#include "net/link-stats.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -114,8 +115,8 @@ static void res_rpl_rank_get_handler(void *request, void *response,
   /* Print the RPL rank */
   if(instance != NULL && instance->current_dag != NULL) {
     snprintf(message, sizeof(message) - 1, "RPL Rank: %u.%02u",
-            instance->current_dag->rank / RPL_DAG_MC_ETX_DIVISOR,
-            (100 * (instance->current_dag->rank % RPL_DAG_MC_ETX_DIVISOR)) / RPL_DAG_MC_ETX_DIVISOR);
+             instance->current_dag->rank / 128,
+             (int)((100L * instance->current_dag->rank) / 128) % 100);
   } else {
     snprintf(message, sizeof(message) - 1, "No rank yet");
   }
@@ -130,21 +131,21 @@ static void res_rpl_rank_get_handler(void *request, void *response,
 static void res_rpl_link_metric_get_handler(void *request, void *response,
   uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-  uint16_t length;
   rpl_instance_t *instance;
-  uip_ds6_nbr_t *nbr;
+  uint16_t length;
+  uint16_t link_metric;
   char message[REST_MAX_CHUNK_SIZE];
 
   memset(message, 0, REST_MAX_CHUNK_SIZE);
   instance = rpl_get_instance(RPL_DEFAULT_INSTANCE);
   /* Print the link metric to parent */
   if(instance != NULL &&
-    instance->current_dag != NULL &&
-    instance->current_dag->preferred_parent != NULL &&
-     (nbr = rpl_get_nbr(instance->current_dag->preferred_parent)) != NULL) {
+     instance->current_dag != NULL &&
+     instance->current_dag->preferred_parent != NULL) {
+    link_metric = rpl_get_parent_link_metric(instance->current_dag->preferred_parent);
     snprintf(message, sizeof(message) - 1, "Link Metric: %u.%02u\n",
-             nbr->link_metric / RPL_DAG_MC_ETX_DIVISOR,
-             (100 * (nbr->link_metric % RPL_DAG_MC_ETX_DIVISOR)) / RPL_DAG_MC_ETX_DIVISOR);
+             link_metric / LINK_STATS_ETX_DIVISOR,
+             (int)((link_metric * 100L) / LINK_STATS_ETX_DIVISOR) % 100);
   } else {
     snprintf(message, sizeof(message) - 1, "No link metric yet\n");
   }
@@ -162,19 +163,12 @@ res_rpl_info_get_handler(void *request, void *response, uint8_t *buffer,
 {
   /*Return RPL information in JSON format */
   uint16_t length = 0;
+  uint16_t link_metric;
   rpl_instance_t *instance;
-  uip_ds6_nbr_t *nbr;
   char message[REST_MAX_CHUNK_SIZE];
   memset(message, 0, sizeof(message));
 
   instance = rpl_get_instance(RPL_DEFAULT_INSTANCE);
-  if(instance != NULL &&
-     instance->current_dag != NULL &&
-     instance->current_dag->preferred_parent != NULL) {
-    nbr = rpl_get_nbr(instance->current_dag->preferred_parent);
-  } else {
-    nbr = NULL;
-  }
 
   /* Write all RPL info in JSON format */
   snprintf(message, sizeof(message) - 1, "{\"parent\":\"");
@@ -197,8 +191,8 @@ res_rpl_info_get_handler(void *request, void *response, uint8_t *buffer,
 
   if(instance != NULL && instance->current_dag != NULL) {
     snprintf(&message[length], sizeof(message) - length - 1, "%u.%02u\"",
-             (instance->current_dag->rank / RPL_DAG_MC_ETX_DIVISOR),
-             (100 * (instance->current_dag->rank % RPL_DAG_MC_ETX_DIVISOR)) / RPL_DAG_MC_ETX_DIVISOR);
+             (instance->current_dag->rank / 128),
+             (int)((100L * instance->current_dag->rank) / 128) % 100);
   } else {
     snprintf(&message[length], sizeof(message) - length - 1, "inf\"");
   }
@@ -206,10 +200,13 @@ res_rpl_info_get_handler(void *request, void *response, uint8_t *buffer,
 
   snprintf(&message[length], sizeof(message) - length - 1, " ,\"link-metric\":\"");
   length = strlen(message);
-  if(nbr != NULL) {
+  if(instance != NULL &&
+     instance->current_dag != NULL &&
+     instance->current_dag->preferred_parent != NULL) {
+    link_metric = rpl_get_parent_link_metric(instance->current_dag->preferred_parent);
     snprintf(&message[length], sizeof(message) - length - 1, "%u.%02u\"",
-             nbr->link_metric / RPL_DAG_MC_ETX_DIVISOR,
-             (100 * (nbr->link_metric % RPL_DAG_MC_ETX_DIVISOR)) / RPL_DAG_MC_ETX_DIVISOR);
+             link_metric / LINK_STATS_ETX_DIVISOR,
+             (int)((link_metric * 100L) / LINK_STATS_ETX_DIVISOR) % 100);
   } else {
     snprintf(&message[length], sizeof(message) - length - 1, "inf\"");
   }

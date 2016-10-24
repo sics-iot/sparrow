@@ -39,9 +39,6 @@ endif
 # Felicia should have the serial bootloader disabled
 CREATERESCUEIMAGE_ARGS = -D
 
-# Disable COFFEE file system for now.
-COFFEE=0
-
 CONTIKI_TARGET_DIRS = . dev $(BOARD)
 
 CONTIKI_TARGET_SOURCEFILES += spi-arch.c

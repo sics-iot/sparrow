@@ -153,7 +153,7 @@ packet_sent(uint8_t sessionid, uint8_t status, uint8_t tx)
       YLOG_PRINT("[TX %3d] %-9s ",
                  callback->len,
                  get_frame_type(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE)));
-      uip_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
+      net_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
       PRINTA(" %3d tx   %s\n", tx, get_tx_status(status));
     }
     callback->len = 0;
@@ -278,7 +278,7 @@ packet_input(void)
              packetbuf_datalen(),
              get_frame_type(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE)),
              packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP));
-      uip_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      net_debug_lladdr_print((uip_lladdr_t *)packetbuf_addr(PACKETBUF_ADDR_SENDER));
       PRINTA(" %d dBm\n",
              (int8_t)packetbuf_attr(PACKETBUF_ATTR_RSSI));
     }

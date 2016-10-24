@@ -1,6 +1,6 @@
 /* Copyright (c) 2015, Yanzi Networks AB.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *    1. Redistributions of source code must retain the above copyright
@@ -11,7 +11,7 @@
  *    3. Neither the name of the copyright holders nor the
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -27,12 +27,12 @@
  *
  */
 
+#include "resource-print-engine.h"
+#include "net/rpl/rpl.h"
+#include "net/link-stats.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "resource-print-engine.h"
-#include "rpl.h"
-#include "rpl-private.h"
 /*---------------------------------------------------------------------------*/
 uint16_t
 print_rpl_parent(char *msg, int max_chars)
@@ -56,10 +56,9 @@ print_rpl_rank(char *msg, int max_chars)
   rpl_instance_t *instance;
   instance = rpl_get_instance(RPL_DEFAULT_INSTANCE);
   if(instance != NULL && instance->current_dag != NULL) {
-    snprintf(msg, max_chars, "%u.%02u", 
-      instance->current_dag->rank / RPL_DAG_MC_ETX_DIVISOR,
-      (100 * instance->current_dag->rank % RPL_DAG_MC_ETX_DIVISOR) /
-      RPL_DAG_MC_ETX_DIVISOR);
+    snprintf(msg, max_chars, "%u.%02u",
+             instance->current_dag->rank / 128,
+             (int)((100L * instance->current_dag->rank) / 128) % 100);
   } else {
     snprintf(msg, max_chars, "inf");
   }
@@ -70,16 +69,15 @@ uint16_t
 print_rpl_link_metric(char *msg, int max_chars)
 {
   rpl_instance_t *instance;
-  uip_ds6_nbr_t *nbr;
+  uint16_t link_metric;
   instance = rpl_get_instance(RPL_DEFAULT_INSTANCE);
   if(instance != NULL &&
-    instance->current_dag != NULL &&
-    instance->current_dag->preferred_parent != NULL &&
-    (nbr = rpl_get_nbr(instance->current_dag->preferred_parent)) != NULL) {
+     instance->current_dag != NULL &&
+     instance->current_dag->preferred_parent != NULL &&
+     (link_metric = rpl_get_parent_link_metric(instance->current_dag->preferred_parent)) != 0xffff) {
     snprintf(msg, max_chars, "%u.%02u\n",
-      nbr->link_metric / RPL_DAG_MC_ETX_DIVISOR,
-      (100 * (nbr->link_metric % RPL_DAG_MC_ETX_DIVISOR)) /
-      RPL_DAG_MC_ETX_DIVISOR);
+             link_metric / LINK_STATS_ETX_DIVISOR,
+             (int)((link_metric * 100L) / LINK_STATS_ETX_DIVISOR) % 100);
   } else {
     snprintf(msg, max_chars, "inf");
   }
