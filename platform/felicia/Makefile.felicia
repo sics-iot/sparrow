@@ -17,6 +17,7 @@ IMAGE_TYPE_DONKEYJR    = 0090da05010104e0
 IMAGE_TYPE_IOT_U10     = 0090da0500000010
 IMAGE_TYPE_IOT_U10PLUS = 0090da0500000011
 IMAGE_TYPE_IOT_U42     = 0090da0501010502
+IMAGE_TYPE_CC2538EM    = 70B3D57D51000020
 
 ifeq ($(BOARD), felicia)
   IMAGE_TYPE = $(IMAGE_TYPE_FELICIA)
@@ -28,6 +29,8 @@ else ifeq ($(BOARD), donkeyjr)
   IMAGE_TYPE = $(IMAGE_TYPE_DONKEYJR)
 else ifeq ($(BOARD), iot-u42)
   IMAGE_TYPE = $(IMAGE_TYPE_IOT_U42)
+else ifeq ($(BOARD), cc2538em)
+  IMAGE_TYPE = $(IMAGE_TYPE_CC2538EM)
 else ifeq ($(BOARD),)
   ${error BOARD not specified, please specify a Felicia board!}
 endif
