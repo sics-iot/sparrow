@@ -61,8 +61,8 @@ uint32_t PLATFORM_GET_TEMPERATURE(void);
 #define LEDS_GREEN           2
 #define LEDS_SYSTEM_YELLOW   4
 #define LEDS_SYSTEM_GREEN    8
-#define LEDS_RED             0
-#define LEDS_BLUE            0
+#define LEDS_RED             16 /* Not in use */
+#define LEDS_BLUE            32 /* Not in use */
 /* Only include the user leds in LEDS_ALL */
 #define LEDS_CONF_ALL        0x03
 /*---------------------------------------------------------------------------*/

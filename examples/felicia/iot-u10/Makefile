@@ -28,5 +28,12 @@ ifdef MAKE_WITH_WEBSERVER
 APPS += mote-res/resources-web
 endif
 
+ifdef MAKE_WITH_IPSO
+APPS += oma-lwm2m
+APPS += ipso-objects
+CONTIKI_SOURCEFILES += stts751-ipso-temperature.c
+CFLAGS += -DWITH_IPSO=1
+endif
+
 CONTIKI_WITH_IPV6 = 1
 include $(SPARROW)/Makefile.sparrow
