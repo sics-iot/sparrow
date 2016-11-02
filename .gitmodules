@@ -3,3 +3,7 @@
 	url = https://github.com/contiki-os/contiki.git
 	branch = master
 	ignore = dirty
+[submodule "apps/tinydtls"]
+	path = apps/tinydtls
+        branch = sparrow
+	url = https://github.com/jeremy-ang/sparrow-tinydtls.git
