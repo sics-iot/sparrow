@@ -27,6 +27,7 @@ CONTIKI=$(SPARROW)/contiki
 CONTIKI_CPU=$(SPARROW)/cpu/cc2538
 IMAGE_TRAILER=$(SPARROW)/lib/image-trailer
 SOURCEDIRS=. $(CONTIKI_CPU) $(CONTIKI_CPU)/dev $(SPARROW)/core $(CONTIKI)/core
+SOURCEDIRS+=$(CONTIKI)/cpu/cc2538 $(CONTIKI)/cpu/cc2538/dev
 include $(CONTIKI_CPU)/Makefile.cc2538
 
 
@@ -40,6 +41,8 @@ CFLAGS+=-I$(SPARROW)/core
 CFLAGS+=-I$(CONTIKI)/core
 CFLAGS+=-I$(CONTIKI_CPU)
 CFLAGS+=-I$(CONTIKI_CPU)/dev
+CFLAGS+=-I$(CONTIKI)/cpu/cc2538
+CFLAGS+=-I$(CONTIKI)/cpu/cc2538/dev
 CFLAGS+=-I$(IMAGE_TRAILER)
 CFLAGS+=-DIMAGE_TRAILER_MEMCMP=rom_util_memcmp
 #CFLAGS+=-g -Wall -Werror -Wundef -Os -O2

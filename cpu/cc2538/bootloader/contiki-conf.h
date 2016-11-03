@@ -43,4 +43,9 @@
 #define FLASH_CONF_SIZE    0x00080000 /* 512 KiB */
 #endif
 
+/* Avoid including coffee configuration */
+#define CFS_COFFEE_ARCH_H_
+#define COFFEE_START     FLASH_CONF_ORIGIN
+#define COFFEE_SIZE      0
+
 #endif /* CONTIKI_CONF_H_ */

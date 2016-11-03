@@ -44,6 +44,7 @@
 #include "net/rpl/rpl-private.h"
 #include "net/mac/handler-802154.h"
 #include "net/nbr-table.h"
+#include "net/link-stats.h"
 #include "net/net-control.h"
 #include "sparrow-oam.h"
 #include "sparrow-uc.h"
@@ -64,7 +65,7 @@ SPARROW_OAM_INSTANCE_NAME(instance_nstats);
 #define INSTANCE_NSTATS_PERIODIC 0
 #endif
 
-#define NSTATS_MIN_PUSH_PERIOD           30
+#define NSTATS_MIN_PUSH_PERIOD          120
 #define NSTATS_MAX_DEFAULT_PAYLOAD      256
 
 #define NS_LOLLIPOP_MAX_VALUE           255
@@ -129,19 +130,19 @@ write_int8_max_to_buf(uint8_t *p, int value)
 }
 /*---------------------------------------------------------------------------*/
 static size_t
-write_stats_rpl(uint8_t *reply, size_t len)
+write_stats_default(uint8_t *reply, size_t len)
 {
-  network_stats_rpl_t *stats;
+  network_stats_default_t *stats;
+  const struct link_stats *lstat;
+  const linkaddr_t *lladdr;
   rpl_instance_t *instance;
   rpl_parent_t *preferred_parent;
-  uip_ipaddr_t *addr;
-  uip_ds6_nbr_t *nbr;
 
-  if(len < sizeof(network_stats_rpl_t)) {
+  if(len < sizeof(network_stats_default_t)) {
     return 0;
   }
-  stats = (network_stats_rpl_t *)reply;
-  memset(stats, 0, sizeof(network_stats_rpl_t));
+  stats = (network_stats_default_t *)reply;
+  memset(stats, 0, sizeof(network_stats_default_t));
 
   stats->seqno = push_seqno;
   write_int8_max_to_buf(&stats->free_neighbors, NBR_TABLE_MAX_NEIGHBORS - uip_ds6_nbr_num());
@@ -156,13 +157,14 @@ write_stats_rpl(uint8_t *reply, size_t len)
     if(instance->current_dag != NULL) {
       preferred_parent = instance->current_dag->preferred_parent;
       if(preferred_parent != NULL) {
-        addr = rpl_get_parent_ipaddr(preferred_parent);
-        nbr = rpl_get_nbr(preferred_parent);
-        if(addr != NULL) {
-          memcpy(stats->parent, &addr->u8[12], 4);
+        lladdr = nbr_table_get_lladdr(rpl_parents, preferred_parent);
+        if(lladdr != NULL) {
+          memcpy(stats->parent, &lladdr->u8[4], 4);
           sparrow_tlv_write_int16_to_buf(stats->parent_rank, preferred_parent->rank);
-          if(nbr != NULL) {
-            sparrow_tlv_write_int16_to_buf(stats->parent_metric, nbr->link_metric);
+
+          lstat = link_stats_from_lladdr(lladdr);
+          if(lstat != NULL) {
+            sparrow_tlv_write_int16_to_buf(stats->parent_metric, lstat->etx);
           }
         }
       }
@@ -183,15 +185,15 @@ write_stats_rpl(uint8_t *reply, size_t len)
 
   write_int8_max_to_buf(&stats->oam_last_activity, sparrow_oam_get_time_since_last_good_rx_from_uc() / 60000UL);
 
-  return sizeof(network_stats_rpl_t);
+  return sizeof(network_stats_default_t);
 }
 /*---------------------------------------------------------------------------*/
 static size_t
 write_stat(uint8_t type, uint8_t *reply, size_t len)
 {
   switch(type) {
-  case INSTANCE_NSTATS_DATA_RPL:
-    return write_stats_rpl(reply, len);
+  case INSTANCE_NSTATS_DATA_DEFAULT:
+    return write_stats_default(reply, len);
   case INSTANCE_NSTATS_DATA_PARENT_INFO:
     /* TODO information about candidate parents */
     return 0;
@@ -255,7 +257,7 @@ write_stats_data_and_element_count(sparrow_tlv_t *request,
 
   if(next_data_blob_count == 0) {
     /* Restore default */
-    next_data_blob[0] = INSTANCE_NSTATS_DATA_RPL;
+    next_data_blob[0] = INSTANCE_NSTATS_DATA_DEFAULT;
     next_data_blob_count = 1;
   }
 

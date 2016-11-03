@@ -339,7 +339,6 @@ reset(void)
   usb_arch_setup_control_endpoint(0);
 }
 /*---------------------------------------------------------------------------*/
-#if LPM_CONF_ENABLE != 0
 static bool
 permit_pm1(void)
 {
@@ -349,7 +348,6 @@ permit_pm1(void)
    */
   return REG(USB_CTRL) == 0;
 }
-#endif /* LPM_CONF_ENABLE != 0 */
 /*---------------------------------------------------------------------------*/
 /* Init USB */
 void

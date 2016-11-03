@@ -321,7 +321,7 @@ border_router_set_mac(const uint8_t *data)
 {
   /* Setting MAC address is handled when processing radio info */
   printf("Radio MAC address is ");
-  uip_debug_lladdr_print((const uip_lladdr_t *)&data[2]);
+  net_debug_lladdr_print((const uip_lladdr_t *)&data[2]);
   printf("\n");
 }
 /*---------------------------------------------------------------------------*/

@@ -95,7 +95,6 @@ static unsigned long current_time_epoch;
 void
 clock_init(void)
 {
-
   REG(SYSTICK_STRELOAD) = RELOAD_VALUE;
 
   /* System clock source, Enable */
@@ -129,7 +128,6 @@ clock_init(void)
 CCIF clock_time_t
 clock_time(void)
 {
-  /* TODO - this needs to be configured so that it is not used when we are doing sleep!!!! */
   clock_time_t r1, r2;
   do {
     r1 = current_time;
@@ -144,7 +142,6 @@ clock_time(void)
   /* r1 = r1 * CLOCK_SECOND; */
   /* return r1 / RTIMER_SECOND; */
 }
-
 /*---------------------------------------------------------------------------*/
 void
 clock_set_seconds(unsigned long sec)

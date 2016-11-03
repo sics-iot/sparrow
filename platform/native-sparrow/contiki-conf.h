@@ -161,12 +161,16 @@ typedef unsigned short uip_stats_t;
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 
 typedef uint64_t clock_time_t;
-typedef uint64_t rtimer_clock_t;
-#define RTIMER_CLOCK_LT(a,b)     ((int64_t)((a)-(b)) < 0)
-#define CPRIct PRIu64
-#define CPRIrc PRIu64
-
 #define CLOCK_CONF_SECOND 1000
+#define CPRIct PRIu64
+
+/*
+ * rtimer.h typedefs rtimer_clock_t as unsigned short. We need to define
+ * RTIMER_CLOCK_DIFF to override this
+ */
+typedef uint64_t rtimer_clock_t;
+#define CPRIrc PRIu64
+#define RTIMER_CLOCK_DIFF(a, b)  ((int64_t)((a) - (b)))
 
 #define LOG_CONF_ENABLED 1
 

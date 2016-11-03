@@ -48,14 +48,14 @@
 #define INSTANCE_NSTATS_DATA_VERSION             0
 
 #define INSTANCE_NSTATS_DATA_NONE                0
-#define INSTANCE_NSTATS_DATA_RPL                 1
+#define INSTANCE_NSTATS_DATA_DEFAULT             1
 #define INSTANCE_NSTATS_DATA_PARENT_INFO         2
 #define INSTANCE_NSTATS_DATA_BEACONS             3
 #define INSTANCE_NSTATS_DATA_NETSELECT           4
 #define INSTANCE_NSTATS_DATA_RADIO               5
 #define INSTANCE_NSTATS_DATA_CONFIG              6
 
-/* INSTANCE_NSTATS_DATA_RPL */
+/* INSTANCE_NSTATS_DATA_DEFAULT */
 typedef struct {
   uint8_t seqno;                     /* Lollipop */
   uint8_t free_routes;
@@ -80,7 +80,7 @@ typedef struct {
   uint8_t dao_loops_detected;
   uint8_t ext_hdr_errors;
   uint8_t oam_last_activity;
-} network_stats_rpl_t;
+} network_stats_default_t;
 
 /* INSTANCE_NSTATS_DATA_PARENT_INFO */
 typedef struct {
