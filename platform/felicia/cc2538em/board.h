@@ -38,7 +38,7 @@
  * @{
  *
  * \file
- * Header file with definitions related to the I/O connections on the felicia module
+ * Header file with definitions related to the I/O connections on the CC2538EM module
  *
  * \note   Do not include this file directly. It gets included by contiki-conf
  *         after all relevant directives have been set.
@@ -49,26 +49,19 @@
 #include "dev/gpio.h"
 #include "dev/nvic.h"
 
-#define PLATFORM_HAS_LEDS    1
-#define PLATFORM_HAS_BUTTON  1
+#define PLATFORM_HAS_LEDS    0
+#define PLATFORM_HAS_BUTTON  0
 #define PLATFORM_HAS_SLIDE_SWITCH 0
-#define PLATFORM_HAS_SENSORS 1
-
-#define LEDS_YELLOW          1
-#define LEDS_GREEN           2
-#define LEDS_RED             0
-#define LEDS_BLUE            0
-/* Only include the user leds in LEDS_ALL */
-#define LEDS_CONF_ALL        0x03
+#define PLATFORM_HAS_SENSORS 0
 /*---------------------------------------------------------------------------*/
 /** \name USB configuration
  *
- * The USB pullup is driven by PC2
+ * The USB pullup is driven by PC0 (TI CC2538EM)
  *
  * @{
  */
 #define USB_PULLUP_PORT          GPIO_C_NUM
-#define USB_PULLUP_PIN           2 /* For Yanzi Felicia board */
+#define USB_PULLUP_PIN           0 /* PC0 = CC2538EM */
 #define USB_PULLUP_ACTIVE_HIGH   1
 
 /** @} */
@@ -139,19 +132,10 @@
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
- * \name Button configuration
- * @{
- */
-#define USER_BUTTON_PORT              GPIO_D_NUM
-#define USER_BUTTON_PIN               6
-#define USER_BUTTON_VECTOR            NVIC_INT_GPIO_PORT_D
-/** @} */
-/*---------------------------------------------------------------------------*/
-/**
  * \name Device string used on startup
  * @{
  */
-#define BOARD_STRING "felicia"
+#define BOARD_STRING "CC2538EM"
 /** @} */
 
 #endif /* BOARD_H_ */
