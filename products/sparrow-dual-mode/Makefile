@@ -7,7 +7,9 @@ all: $(CONTIKI_PROJECT)
 APPS += slip-cmd
 APPS += sparrow-oam sparrow-beacon
 APPS += sparrow-instances/instance-flash
+ifneq ($(BOARD),cc2538em)
 APPS += sparrow-instances/instance-leds
+endif
 APPS += sparrow-instances/instance-nstats
 
 ifeq ($(TARGET),)
