@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Copyright (c) 2016, SICS, Swedish ICT
 # All rights reserved.
@@ -51,6 +51,3 @@ def load_vars(yaml_file):
 if __name__ == "__main__":
     with open(sys.argv[1], 'r') as yaml_file:
         load_vars(yaml_file)
-
-
-
