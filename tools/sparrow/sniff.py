@@ -41,19 +41,25 @@ import binascii, struct, time, array
 
 _ETH_DATA = array.array('B', [0xaf, 0xab, 0xac, 0xad, 0xae, 0xaf, 0x42, 0xfb, 0x9f, 0x81, 0x5a,
             0x81, 0x80, 0x9a]).tostring()
+# 195 for LINKTYPE_IEEE802_15_4 */
+LLAYER_HDR_TYPE = 195
 
 def init_pcap(out):
     # pcap file header */
-    PCAPHDR = struct.pack("!LHHLLLL", 0xa1b2c3d4, 0x0002, 0x004, 0, 0, 4096, 1)
+    PCAPHDR = struct.pack("!LHHLLLL", 0xa1b2c3d4, 0x0002, 0x004, 0, 0, 4096, LLAYER_HDR_TYPE)
     out.write(PCAPHDR)
 
-def export_packet_data(out, data):
+def export_packet_data(out, timestamp, data):
     # pcap packet header with timestamp
-    now = int(round(time.time() * 1000))
-    out.write(struct.pack("!LL", now / 1000, (now % 1000) * 1000))
-    out.write(struct.pack("!LL", len(data) + len(_ETH_DATA), len(data) + len(_ETH_DATA)))
-    # Write the ETH header
-    out.write(_ETH_DATA)
+    out.write(struct.pack("!LL", timestamp / 1000, (timestamp % 1000) * 1000))
+    l = len(data)
+    if LLAYER_HDR_TYPE == 1:
+        l += len(_ETH_DATA)
+        out.write(struct.pack("!LL", l, l))
+        # Write the ETH header
+        out.write(_ETH_DATA)
+    else:
+        out.write(struct.pack("!LL", l, l))
     # and the data
     out.write(data)
     out.flush()
@@ -137,19 +143,31 @@ if outfile != None:
 if channel != None:
     con.send("!C" + struct.pack("B", int(channel)))
 con.send("!m\002")
+i = 0
+start_timestamp = int(round(time.time() * 1000))
 
 while True:
     if end_time is not None and end_time < time.time():
         break
 
-    data = con.get_next_block(10)
-    if data != None and data.serial_data != None:
-        crc = CCITT_CRC()
-        #print "Received:", binascii.hexlify(data.serial_data[2:])
-        for b in data.serial_data[2:]:
-            crc.addBitrev(ord(b))
-        new_data = data.serial_data[2:] + struct.pack("BB", crc.getCRCHi(), crc.getCRCLow())
-        export_packet_data(out, new_data)
+    frame = con.get_next_frame(10)
+    if frame is not None:
+        i += 1
+        ts = frame.timestamp - start_timestamp
+        data = frame.get_encap()
+        if data is not None and data.serial_data != None:
+            # sys.stderr.write("RECV[" + str(frame.seqno) + "] " + str(ts) + " - " + binascii.hexlify(data.serial_data[2:]) + "\n")
+            crc = CCITT_CRC()
+            for b in data.serial_data[2:]:
+                crc.addBitrev(ord(b))
+            new_data = data.serial_data[2:] + struct.pack("BB", crc.getCRCHi(), crc.getCRCLow())
+            export_packet_data(out, frame.timestamp, new_data)
+            sys.stderr.write("*")
+        else:
+            # sys.stderr.write("RECV[" + str(frame.seqno) + "] " + str(ts) + " NOT SERIAL!\n")
+            sys.stderr.write("-")
+        if (i & 63) == 0:
+            sys.stderr.write("\n")
 
 out.close()
 con.close()

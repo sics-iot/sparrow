@@ -33,18 +33,30 @@
 # library for setting up connections to a Sparrow serial radio.
 #
 
-import tlvlib, socket, thread, time, binascii
+import tlvlib, socket, thread, time, binascii, Queue
 
 SLIP_END = chr(0300)
 SLIP_ESC = chr(0333)
 SLIP_ESC_END = chr(0334)
 SLIP_ESC_ESC = chr(0335)
 
+class SlipFrame:
+    def __init__(self, seqno, timestamp, data):
+        self.seqno = seqno
+        self.timestamp = timestamp
+        self.data = data
+
+    def get_encap(self):
+        encap = tlvlib.EncapHeader()
+        encap.unpack(self.data)
+        return encap
+
 class Slip:
 
     slip_packets = []
     slip_buf = ""
     slip_mode = None
+    slip_seqno = 0
 
     def encode(self, data):
         output = ""
@@ -64,7 +76,9 @@ class Slip:
             if self.slip_mode == None:
                 if d == SLIP_END:
                     if self.slip_buf != "":
-                        self.slip_packets = self.slip_packets + [self.slip_buf]
+                        self.slip_seqno += 1
+                        frame = SlipFrame(self.slip_seqno, int(round(time.time() * 1000L)), self.slip_buf)
+                        self.slip_packets.append(frame)
                         self.slip_buf = ""
                 elif d == SLIP_ESC:
                     self.slip_mode = SLIP_ESC
@@ -87,10 +101,14 @@ class Slip:
 class SerialRadioConnection:
 
     DEBUG = False
-    packets = []
+    packets = None
     socket = None
     thread = None
     slip = None
+
+    def __init__(self):
+        self.packets = Queue.Queue()
+        self.slip = Slip()
 
     def connect(self, host = "localhost", port = 9999):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -112,36 +130,28 @@ class SerialRadioConnection:
             packets = self.slip.decode(data)
             if packets != None:
                 for p in packets:
-                    if p != "":
-                        if p[0] == '\r':
-                            if self.DEBUG:
-                                print "DEBUG:", p[1:]
-                        else:
-                            if self.DEBUG:
-                                print "RECV:", binascii.hexlify(p)
-                            self.packets = self.packets + [p]
-                            #print binascii.hexlify(p)
+                    if p.data[0] == '\r':
+                        if self.DEBUG:
+                            print "DEBUG:", p.data[1:]
+                    else:
+                        if self.DEBUG:
+                            print "RECV:", binascii.hexlify(p.data)
+                        self.packets.put(p)
 
-    # return the next encap data received
-    def get_next(self):
-        if self.packets != []:
-            p = self.packets[0]
-            self.packets = self.packets[1:]
-            enc = tlvlib.EncapHeader()
-            enc.unpack(p)
-            return enc
-        return None
+    def get_next_frame(self, timeout = 5):
+        try:
+            return self.packets.get(True, timeout)
+        except Queue.Empty:
+            return None
 
     def get_next_block(self, timeout = 5):
-        start = time.time()
-        while (time.time() - start < timeout):
-            if self.has_next():
-                return self.get_next()
-            time.sleep(0.1) # short sleep to not busy loop...
+        p = self.get_next_frame(timeout)
+        if p is not None:
+            return p.get_encap()
         return None
 
     def has_next(self):
-        return self.packets != []
+        return not self.packets.empty()
 
     def send(self, data):
         enc_pdu = tlvlib.EncapHeader()
