@@ -233,17 +233,18 @@ VARIABLE_SLEEP_DEFAULT_AWAKE_TIME = 0x0d0
 VARIABLE_CHASSIS_ACTIVITY_CYCLES_REQUEST = 0x0ec
 
 # variables used for the netselect process
-VARIABLE_UNIT_CONTROLLER_WATCHDOG = 0x0c0;
-VARIABLE_UNIT_CONTROLLER_STATUS = 0x0c1;
-VARIABLE_UNIT_CONTROLLER_ADDRESS = 0x0c2;
-VARIABLE_LOCATION_ID = 0x0ce;
+VARIABLE_UNIT_CONTROLLER_WATCHDOG = 0x0c0
+VARIABLE_UNIT_CONTROLLER_STATUS   = 0x0c1
+VARIABLE_UNIT_CONTROLLER_ADDRESS  = 0x0c2
+VARIABLE_LOCATION_ID              = 0x0ce
 
 # variables used for the radio instance
-VARIABLE_RADIO_CHANNEL = 0x100;
-VARIABLE_RADIO_PAN_ID = 0x101;
-VARIABLE_RADIO_BEACON_RESPONSE = 0x102;
-VARIABLE_RADIO_MODE = 0x103;
-VARIABLE_RADIO_LINK_LAYER_KEY = 0x200
+VARIABLE_RADIO_CHANNEL         = 0x100
+VARIABLE_RADIO_PAN_ID          = 0x101
+VARIABLE_RADIO_BEACON_RESPONSE = 0x102
+VARIABLE_RADIO_MODE            = 0x103
+VARIABLE_RADIO_RESET_CAUSE     = 0x10e
+VARIABLE_RADIO_LINK_LAYER_KEY  = 0x200
 VARIABLE_RADIO_LINK_LAYER_SECURITY_LEVEL = 0x201
 
 # misc variables for specific devices
@@ -259,8 +260,8 @@ VARIABLE_ACCELEROMETER_MODE        = 0x104
 VARIABLE_ACCELEROMETER_SENSITIVITY = 0x105
 VARIABLE_ACCELEROMETER_TYPE        = 0x106
 
-VARIABLE_RELAY_READ = 0x100;
-VARIABLE_RELAY_WRITE = 0x101;
+VARIABLE_RELAY_READ   = 0x100
+VARIABLE_RELAY_WRITE  = 0x101
 VARIABLE_GPOUT_OUTPUT = 0x101
 VARIABLE_GPOUT_CONFIG = 0x106
 VARIABLE_GPOUT_CAPABILITIES = 0x107
@@ -365,14 +366,14 @@ class EncapHeader:
 #            print "CRC32", hex(binascii.crc32(bindata[0:size + self.length]) & 0xffffffff), " <=> ", hex(self.crc32)
 #            print "CRCOK:", self.crc_ok
 
-        self.tot_size = size;
+        self.tot_size = size
 
         return size
 
     def size(self):
         return self.tot_size
 
-    def printEncap(self):
+    def print_encap(self):
         print "  ENC version", self.version
         print "  ENC type", self.payload_type
         print "  ENC error", self.error
@@ -458,7 +459,7 @@ class TLVHeader:
                                 self.element_count * 4 * (2 ** self.element_size)]
 
         if self.length * 4 > self.size():
-            print "**** TLV Warning - data in unexpected OP"
+            print "**** TLV Warning - data in unexpected OP",self.op
             self.data = bindata[self.size() : self.length * 4]
 
         # assing value for backwards compliance
@@ -467,7 +468,7 @@ class TLVHeader:
 
     def size(self):
         if self.is_null: return 2
-        size = 0;
+        size = 0
         # if with data then add data size
         if self.data: size = len(self.data)
         # if with vector then add the extra vector header size
@@ -532,9 +533,9 @@ def create_encap(tlv):
     if type(tlv) == list:
         tlv_header = ""
         for t in tlv:
-            tlv_header = tlv_header + t.pack();
+            tlv_header = tlv_header + t.pack()
     else:
-        tlv_header = tlv.pack();
+        tlv_header = tlv.pack()
     if DEBUG: print "TLV: ", binascii.hexlify(tlv_header)
     data = enc_header + tlv_header + NULL_TLV
     return data
@@ -625,21 +626,22 @@ def send_tlv(intlv, host=UDP_IP, port=UDP_PORT, timeout=1.0, show_error=True, re
     if DEBUG: print "Received: ", binascii.hexlify(data)
     enc = parse_encap(data)
     tlvs = parse_tlvs(data[enc.size():])
-    tlv = tlvs[0]
-    if show_error and tlv.error != 0:
-        print "  TLV Error",tlv.error,"(" + get_tlv_error_as_string(tlv.error) + ") - TLV Data:", binascii.hexlify(data[enc.size():])
-        if hasattr(intlv, 'op') and hasattr(intlv, 'instance'):
-            print "  for op",intlv.op,"instance",intlv.instance,"variable",intlv.variable
-        else:
-            print "  for",intlv
-    if show_error and (tlv.error > 17 or DEBUG):
-        print "  received raw: ", binascii.hexlify(data)
-        print "  raw TLV: ", binascii.hexlify(data[enc.size():])
-        print "  received: ", enc.size(), tlv.size(), data[enc.size() + tlv.size():]
-        print "  -----------"
-        enc.printEncap()
-        print "  -----------"
-        print_tlv(tlv)
+    if show_error:
+        for tlv in tlvs:
+            if tlv.error != 0:
+                if hasattr(tlv, 'op') and hasattr(tlv, 'instance'):
+                    print "  TLV ERROR",tlv.error,"(" + get_tlv_error_as_string(tlv.error) + ") for",get_tlv_op_as_name(tlv.op),"in instance",tlv.instance,"variable 0x%x"%tlv.variable
+                else:
+                    print "  TLV ERROR",tlv.error,"(" + get_tlv_error_as_string(tlv.error) + ")"
+                    print_tlv(tlv)
+            if (tlv.error > 17 or DEBUG):
+                print "  received raw: ", binascii.hexlify(data)
+                print "  raw TLV: ", binascii.hexlify(data[enc.size():])
+                print "  received: ", enc.size(), tlv.size(), data[enc.size() + tlv.size():]
+                print "  -----------"
+                enc.print_encap()
+                print "  -----------"
+                print_tlv(tlv)
     return enc, tlvs
 
 def print_tlvs(tlvs):
@@ -682,6 +684,19 @@ def _get_tlv_short_info(t):
     if t.error != 0:
         end = "E" + str(t.error) + end
     return "[" + str(t.instance) + ":0x%03x"%t.variable + ":" + get_tlv_op_as_short_name(t.op) + end
+
+def calc_sht20_checksum(data):
+    POLYNOMIAL = 0x131
+    crc = 0
+    for byte_ctr in range(len(data)):
+        crc ^= data[byte_ctr]
+        for bit in range(8, 0, -1):
+            if (crc & 0x80) != 0:
+                crc = (crc << 1) ^ POLYNOMIAL
+            else:
+                crc = (crc << 1)
+            crc = crc & 0xff
+    return crc
 
 def convert_sht20_temperature(raw_value):
     # Ignore CRC for now
@@ -749,8 +764,8 @@ def get_ieee64_time_as_short_string(elapsed):
 
 def get_start_ieee64_time_as_string(elapsed):
     seconds = (elapsed >> 32) & 0xffffffff
-    startTime = time.time() - seconds
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(startTime))
+    start_time = time.time() - seconds
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))
 
 def get_image_status_as_string(status):
     text = ""
