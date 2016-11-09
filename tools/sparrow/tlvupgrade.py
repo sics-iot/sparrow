@@ -135,21 +135,19 @@ def do_reboot(host, port, image=0):
         pass
     return True
 
-def do_upgrade(data, instance, host, port, block_size):
-    new_upgrade = {}
+def do_upgrade(data, instance, host, port, block_size, retry_passes=50):
     to_upgrade = create_segments(data, block_size)
 
     print "Got", len(to_upgrade.keys()), "segments."
 
     i = 0
-    while i < 10 and len(to_upgrade.keys()) > 0:
-        print "Writing", i + 1, len(to_upgrade.keys()), "left to go.", "\b" * 35,
+    while i < retry_passes and len(to_upgrade.keys()) > 0:
+        i += 1
+        print "Writing", i, len(to_upgrade.keys()), "left to go.", "\b" * 35,
         sys.stdout.flush()
-        i = i + 1
+        new_upgrade = {}
         for udata in to_upgrade:
-            if send_upgrade(to_upgrade[udata], block_size, instance, host, port):
-                to_upgrade[udata] = None
-            else:
+            if not send_upgrade(to_upgrade[udata], block_size, instance, host, port):
                 new_upgrade[udata] = to_upgrade[udata]
         to_upgrade = new_upgrade
     print
@@ -249,7 +247,12 @@ if upgrade == 0 or upgrade_image == 0:
 
 manifest = get_manifest_data(zip)
 if manifest['producttype'] != producttype:
-    print "WARNING: different product type in firmware file and in device:",manifest['producttype'],"!=",producttype
+    if manifest['producttype'] == '0090da0301010482' and producttype == '0090da0302010014':
+        # Sparrow serial radio has two product types: one for border router and
+        # and one for serial radio. No need to warn for this.
+        pass
+    else:
+        print "WARNING: different product type in firmware file and in device:",manifest['producttype'],"!=",producttype
 
 imagetype = manifest['image.' + str(upgrade_image) + '.type']
 if imagetype != upgrade_type:
