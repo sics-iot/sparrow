@@ -841,7 +841,7 @@ def discovery(host, port=UDP_PORT):
     t3 = create_get_tlv32(0, VARIABLE_NUMBER_OF_INSTANCES)
     # get the boot timer
     t4 = create_get_tlv64(0, VARIABLE_UNIT_BOOT_TIMER)
-    enc,tlvs = send_tlv([t1,t2,t3,t4], host, port)
+    enc,tlvs = send_tlv([t1,t2,t3,t4], host, port, timeout=3.0)
     product_type = tlvs[0].int_value
     product_label = convert_string(tlvs[1].value)
     num_instances = tlvs[2].int_value

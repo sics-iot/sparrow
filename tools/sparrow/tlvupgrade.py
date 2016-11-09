@@ -101,7 +101,7 @@ def send_upgrade(segment, size, instance, host, port):
     t2 = tlvlib.create_set_vector_tlv(instance, tlvlib.VARIABLE_FLASH,
                                       tlvlib.SIZE32, segment[0] * size / 4, len(segment[1]) / 4, segment[1])
     try:
-        enc,tlvs = tlvlib.send_tlv([t1,t2], host, port)
+        enc,tlvs = tlvlib.send_tlv([t1,t2], host, port, 1.5)
     except socket.timeout:
         return False
     #tlvlib.print_tlvs(tlvs)
@@ -119,7 +119,10 @@ def create_segments(data, size):
 def do_erase(instance, host, port):
     # create Erase TLV
     t1 = tlvlib.create_set_tlv32(instance, tlvlib.VARIABLE_WRITE_CONTROL, tlvlib.FLASH_WRITE_CONTROL_ERASE)
-    enc,tlvs = tlvlib.send_tlv(t1, host, port)
+    try:
+        enc,tlvs = tlvlib.send_tlv(t1, host, port, 2.5)
+    except socket.timeout:
+        return False
     return tlvs[0].error == 0
 
 def do_reboot(host, port, image=0):
@@ -135,25 +138,28 @@ def do_reboot(host, port, image=0):
         pass
     return True
 
-def do_upgrade(data, instance, host, port, block_size):
+def do_upgrade(data, instance, host, port, block_size, retry_passes=50):
     new_upgrade = {}
     to_upgrade = create_segments(data, block_size)
 
     print "Got", len(to_upgrade.keys()), "segments."
+    segments = len(to_upgrade.keys())
 
     i = 0
-    while i < 10 and len(to_upgrade.keys()) > 0:
-        print "Writing", i + 1, len(to_upgrade.keys()), "left to go.", "\b" * 35,
+    while i < retry_passes and segments > 0:
+        i += 1
+        print "Writing", i, len(to_upgrade.keys()), "left to go.", "\b" * 35,
         sys.stdout.flush()
-        i = i + 1
         for udata in to_upgrade:
-            if send_upgrade(to_upgrade[udata], block_size, instance, host, port):
-                to_upgrade[udata] = None
-            else:
-                new_upgrade[udata] = to_upgrade[udata]
+            if to_upgrade[udata] is not None:
+                if not send_upgrade(to_upgrade[udata], block_size, instance, host, port):
+                    new_upgrade[udata] = to_upgrade[udata]
+		else:
+		    segments = segments - 1
+		    to_upgrade[udata] = None
         to_upgrade = new_upgrade
     print
-    return len(to_upgrade.keys()) == 0
+    return segments == 0
 
 block_size = 512
 port = tlvlib.UDP_PORT
@@ -205,7 +211,11 @@ if not args.s:
     file = open(firmware, 'r')
     zip = zipfile.ZipFile(file)
 
-d = tlvlib.discovery(host, port)
+try:
+    d = tlvlib.discovery(host, port)
+except socket.timeout:
+    print "Failed to discover the device. Probably the device is offline or sleeping."
+    exit()
 producttype = "%016x"%d[0][1]
 print "---- Upgrading ----"
 print "Product label:", d[0][0]," type:",producttype,"instances:", len(d[1])
@@ -249,7 +259,12 @@ if upgrade == 0 or upgrade_image == 0:
 
 manifest = get_manifest_data(zip)
 if manifest['producttype'] != producttype:
-    print "WARNING: different product type in firmware file and in device:",manifest['producttype'],"!=",producttype
+    if manifest['producttype'] == '0090da0301010482' and producttype == '0090da0302010014':
+        # Sparrow serial radio has two product types: one for border router and
+        # and one for serial radio. No need to warn for this.
+        pass
+    else:
+        print "WARNING: different product type in firmware file and in device:",manifest['producttype'],"!=",producttype
 
 imagetype = manifest['image.' + str(upgrade_image) + '.type']
 if imagetype != upgrade_type:
@@ -265,9 +280,15 @@ data = zip.read(zfile)
 print "Upgrading instance", upgrade, label, "with image", zfile.filename," (" + str(len(data)) + " bytes)"
 if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
     print "Erasing image",upgrade
-    if not do_erase(upgrade, host, port):
-        print "ERROR: failed to erase image"
-        exit()
+    i = 5
+    while i >= 0:
+         if not do_erase(upgrade, host, port):
+             i = i - 1
+             if i == 0:
+                 print "ERROR: failed to erase image"
+                 exit()
+         else:
+             break
 
 if not do_upgrade(data, upgrade, host, port, block_size):
     print "ERROR: failed to write firmware file"
