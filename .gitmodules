@@ -6,4 +6,4 @@
 [submodule "apps/tinydtls"]
 	path = apps/tinydtls
         branch = sparrow
-	url = https://github.com/jeremy-ang/sparrow-tinydtls.git
+	url = https://github.com/sics-iot/sparrow-tinydtls.git
