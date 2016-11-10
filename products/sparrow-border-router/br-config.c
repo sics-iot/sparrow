@@ -66,19 +66,26 @@
 #define SEND_DELAY_DEFAULT 0
 #endif
 
+#ifdef SPARROW_BORDER_ROUTER_CONF_BEACON
+#define DEFAULT_BEACON SPARROW_BORDER_ROUTER_CONF_BEACON
+#else /* SPARROW_BORDER_ROUTER_CONF_BEACON */
+/* Location 7000, no owner or device server address */
+#define DEFAULT_BEACON "fe02010a020090da0100001b5800"
+#endif /* SPARROW_BORDER_ROUTER_CONF_BEACON */
+
 uint8_t br_config_wait_for_address = 0;
-int br_config_verbose = 0;
-const char *br_config_ipaddr;
+uint8_t br_config_verbose_output = 1;
+const char *br_config_ipaddr = NULL;
 int br_config_flowcontrol = 0;
 const char *br_config_siodev = NULL;
 const char *br_config_host = NULL;
 const char *br_config_port = NULL;
 const char *br_config_run_command = NULL;
+const char *br_config_beacon = NULL;
 const char *ctrl_config_port = NULL;
 const char *server_config_port = NULL;
 char br_config_tundev[1024] = { "" };
 uint16_t br_config_siodev_delay = SEND_DELAY_DEFAULT;
-uint16_t br_config_basedelay = 0;
 uint16_t br_config_unit_controller_port = 4444;
 uint8_t br_config_is_slave = 0;
 
@@ -87,7 +94,7 @@ uint8_t br_config_is_slave = 0;
 #endif
 speed_t br_config_b_rate = BAUDRATE;
 
-#define GET_OPT_OPTIONS "_?hB:H:D:Ls:t:v::d::l:a:p:SP:C:c:X:"
+#define GET_OPT_OPTIONS "_?hB:H:D:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
 /*---------------------------------------------------------------------------*/
 int
 br_config_handle_arguments(int argc, char **argv)
@@ -96,8 +103,6 @@ br_config_handle_arguments(int argc, char **argv)
   int c;
   int baudrate = -2;
   int tmp;
-
-  br_config_verbose = 0;
 
   prog = argv[0];
   while((c = getopt(argc, argv, GET_OPT_OPTIONS)) != -1) {
@@ -169,9 +174,26 @@ br_config_handle_arguments(int argc, char **argv)
       br_config_is_slave = 1;
       break;
 
+    case 'i':
+      br_config_ipaddr = optarg;
+      break;
+
+    case 'b':
+      if(optarg && strcmp(optarg, "0") != 0) {
+        br_config_beacon = optarg;
+      } else {
+        br_config_beacon = DEFAULT_BEACON;
+      }
+      break;
+
     case 'd':
-      br_config_basedelay = 10;
-      if(optarg) br_config_basedelay = atoi(optarg);
+      /**
+       * The 'd' argument is deprecated as it is not really useful in the
+       * current communication with the serial radio. Left with warning for
+       * now to not affect the behaviour but should be removed in long term.
+       */
+      fprintf(stderr, "  The -d argument is deprecated and should not be used!\n");
+      fprintf(stderr, "  Use -l for 6LoWPAN fragment delay instead\n");
       break;
 
     case 'l':
@@ -179,8 +201,8 @@ br_config_handle_arguments(int argc, char **argv)
       break;
 
     case 'v':
-      br_config_verbose = 2;
-      if(optarg) br_config_verbose = atoi(optarg);
+      br_config_verbose_output = 1;
+      if(optarg) br_config_verbose_output = atoi(optarg);
       break;
 
     case 'X':
@@ -190,31 +212,26 @@ br_config_handle_arguments(int argc, char **argv)
     case '?':
     case 'h':
     default:
-fprintf(stderr,"usage:  %s [options] ipaddress\n", prog);
-fprintf(stderr,"example: border-router.native -s ttyUSB1 aaaa::1/64\n");
+fprintf(stderr,"usage:  %s [options]\n", prog);
+fprintf(stderr,"example: border-router.native -s ttyUSB1 -i aaaa::1/64\n");
 fprintf(stderr,"Options are:\n");
 fprintf(stderr," -B baudrate    9600,19200,38400,57600,115200,230400,460800,921600 (default 460800)\n");
 fprintf(stderr," -H             Hardware CTS/RTS flow control (default disabled)\n");
 fprintf(stderr," -s siodev      Serial device (default /dev/ttyUSB0)\n");
+fprintf(stderr," -i ipaddr      border router IP address\n");
 fprintf(stderr," -a host        Connect via TCP to server at <host>\n");
 fprintf(stderr," -p port        Connect via TCP to server at <host>:<port>\n");
 fprintf(stderr," -c port        Open UDP control at localhost:<port>\n");
 fprintf(stderr," -t tundev      Name of interface (default tun0)\n");
 fprintf(stderr," -X cmd         Run the command and then exit\n");
+fprintf(stderr," -b0            Reply with default beacon to beacon requests from start\n");
+fprintf(stderr," -b [beacon]    Reply to beacon requests from start\n");
 fprintf(stderr," -S             Start in slave mode\n");
-fprintf(stderr," -v[level]      Verbosity level\n");
-fprintf(stderr,"    -v0         No messages\n");
-fprintf(stderr,"    -v1         Encapsulated SLIP debug messages (default)\n");
-fprintf(stderr,"    -v2         Printable strings after they are received\n");
-fprintf(stderr,"    -v3         Printable strings and SLIP packet notifications\n");
-fprintf(stderr,"    -v4         All printable characters as they are received\n");
-fprintf(stderr,"    -v5         All SLIP packets in hex\n");
-fprintf(stderr,"    -v          Equivalent to -v3\n");
-/* This delay seems to be not useful anymore - REMOVE? /JE */
-fprintf(stderr," -d[basedelay]  Minimum delay between outgoing SLIP packets.\n");
-fprintf(stderr,"                Actual delay is basedelay*(#6LowPAN fragments) milliseconds.\n");
-fprintf(stderr,"                -d is equivalent to -d10.\n");
-fprintf(stderr," -l[delay]      Minimum delay between outgoing 6LoWPAN fragments.\n");
+fprintf(stderr," -v level       Console output verbosity level\n");
+fprintf(stderr,"    -v0         Minimal output\n");
+fprintf(stderr,"    -v1         Warnings, etc. (default)\n");
+fprintf(stderr,"    -v5         Everything including all serial data as hex\n");
+fprintf(stderr," -l delay       Minimum delay between outgoing 6LoWPAN fragments.\n");
 fprintf(stderr,"                Default delay is %u milliseconds.\n", SEND_DELAY_DEFAULT);
 fprintf(stderr,"                Actual delay is delay*(#6LoWPAN fragments) milliseconds.\n");
 exit(EXIT_FAILURE);
@@ -224,15 +241,16 @@ exit(EXIT_FAILURE);
   argc -= optind;
   argv += optind;
 
-  //* If no address is supplied, wait for it to be set via OAM */
+  /* If no address is supplied, wait for it to be set via OAM */
   if(argc == 0) {
-      br_config_wait_for_address = 1;
-  } else  if(argc == 1) {
-      br_config_wait_for_address = 0;
-      br_config_ipaddr = argv[0];
+    br_config_wait_for_address = (br_config_ipaddr == NULL);
+  } else if(argc == 1 && br_config_ipaddr == NULL) {
+    br_config_wait_for_address = 0;
+    br_config_ipaddr = argv[0];
   } else {
     fprintf(stderr, "*** too many arguments\n");
-    err(1, "usage: %s [-B baudrate] [-H] [-S] [-s siodev] [-t tundev] [-v verbosity] [-d delay] [-l delay] [-a serveraddress] [-p serverport] ipaddress", prog);
+    fprintf(stderr, "Usage: %s [-B baudrate] [-H] [-S] [-s siodev] [-t tundev] [-v verbosity] [-l delay] [-b beacon] [-a serveraddress] [-p serverport] [-i ipaddr]\n", prog);
+    exit(EXIT_FAILURE);
   }
 
   switch(baudrate) {

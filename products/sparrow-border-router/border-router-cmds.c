@@ -38,6 +38,7 @@
 #include "contiki.h"
 #include "cmd.h"
 #include "border-router.h"
+#include "br-config.h"
 #include "border-router-rdc.h"
 #include "border-router-cmds.h"
 #include "instance-brm.h"
@@ -74,7 +75,6 @@
 uint32_t radio_control_version = 0;
 
 extern uint8_t radio_info;
-extern uint8_t verbose_output;
 
 #define PRINT_TIME_ONCE       (1 << 0)
 #define PRINT_TIME_ALWAYS     (1 << 1)
@@ -236,7 +236,7 @@ border_router_cmd_handler(const uint8_t *data, int len)
 	}
 
         /* if this packet came with the "S" there should be a timestamp */
-        if(verbose_output > 1) {
+        if(br_config_verbose_output > 1) {
           PRINTF("NBR: Packet time in radio: %u (%u)\n",
                  packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP),
                  (unsigned int)(get_sr_time() & 0xffff));
@@ -409,7 +409,7 @@ border_router_cmd_handler(const uint8_t *data, int len)
     case 'R':
       if(command_context == CMD_CONTEXT_RADIO) {
         /* We need to know that this is from the slip-radio here. */
-        if(verbose_output > 1) {
+        if(br_config_verbose_output > 1) {
           PRINTF("Packet data report for sid:%d st:%d tx:%d\n",
                  data[2], data[3], data[4]);
         }
@@ -454,7 +454,7 @@ border_router_cmd_handler(const uint8_t *data, int len)
         int8_t avg = data[5];
         int8_t max = data[6];
         int8_t min = data[7];
-        if(verbose_output > 1) {
+        if(br_config_verbose_output > 1) {
           printf("E: %02d: %02d max %02d min %02d (%u measures)\n",
                  channel, avg, max, min, (unsigned)count);
         }
@@ -563,7 +563,7 @@ border_router_cmd_handler(const uint8_t *data, int len)
         int verbose;
         uint8_t buf[3];
         dectoi(&data[2], len - 2, &verbose);
-        verbose_output = verbose;
+        br_config_verbose_output = verbose;
         buf[0] = '!';
         buf[1] = 'd';
         buf[2] = verbose & 0xff;
@@ -571,7 +571,8 @@ border_router_cmd_handler(const uint8_t *data, int len)
         return 1;
       }
       if(command_context == CMD_CONTEXT_RADIO) {
-        YLOG_INFO("Radio verbose: %u  NBR verbose: %u\n", data[2], verbose_output);
+        YLOG_INFO("Radio verbose: %u  NBR verbose: %u\n", data[2],
+                  br_config_verbose_output);
         return 1;
       }
       return 1;

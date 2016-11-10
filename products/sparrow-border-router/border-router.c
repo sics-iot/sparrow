@@ -42,6 +42,7 @@
 #include "contiki-lib.h"
 #include "contiki-net.h"
 #include "dev/watchdog.h"
+#include "lib/hexconv.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-ds6-route.h"
@@ -323,6 +324,20 @@ border_router_set_mac(const uint8_t *data)
   printf("Radio MAC address is ");
   net_debug_lladdr_print((const uip_lladdr_t *)&data[2]);
   printf("\n");
+}
+/*---------------------------------------------------------------------------*/
+static void
+border_router_set_beacon(const char *beacon)
+{
+  int len;
+  packetbuf_clear();
+  len = hexconv_unhexlify(beacon, strlen(beacon), packetbuf_dataptr(), PACKETBUF_SIZE);
+  if(len > 0) {
+    YLOG_INFO("Setting beacon: 0x%s\n", beacon);
+    handler_802154_set_beacon_payload(packetbuf_dataptr(), len);
+  } else if(len < 0) {
+    YLOG_ERROR("Failed to parse the beacon: 0x%s\n", beacon);
+  }
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -838,6 +853,11 @@ PROCESS_THREAD(border_router_process, ev, data)
   }
 
   print_local_addresses();
+
+  if(br_config_beacon != NULL) {
+    /* Reply to beacon requests */
+    border_router_set_beacon(br_config_beacon);
+  }
 
   while(1) {
     etimer_set(&et, CLOCK_SECOND * 10);

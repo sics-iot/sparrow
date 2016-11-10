@@ -90,13 +90,13 @@ endif
 connect-router:	connect-normal
 
 connect-normal: border-router.$(TARGET)
-	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) ${PREFIX}
+	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -i ${PREFIX}
 
 connect-full:	border-router.$(TARGET)
-	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -B 460800 ${PREFIX}
+	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -B 460800 -i ${PREFIX}
 
 connect-high:	border-router.$(TARGET)
-	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -B 921600 ${PREFIX}
+	sudo $(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -B 921600 -i ${PREFIX}
 
 connect-slave:	border-router.$(TARGET)
 	$(RUN_GDB) ./border-router.$(TARGET) $(PORTARGS) -S

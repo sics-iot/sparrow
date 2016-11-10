@@ -33,18 +33,18 @@
 #include <stdint.h>
 
 extern uint8_t br_config_wait_for_address;
-extern int br_config_verbose;
+extern uint8_t br_config_verbose_output;
 extern const char *br_config_ipaddr;
 extern int br_config_flowcontrol;
 extern const char *br_config_siodev;
 extern const char *br_config_host;
 extern const char *br_config_port;
 extern const char *br_config_run_command;
+extern const char *br_config_beacon;
 extern const char *ctrl_config_port;
 extern const char *server_config_port;
 extern char br_config_tundev[];
 extern uint16_t br_config_siodev_delay;
-extern uint16_t br_config_basedelay;
 extern uint16_t br_config_unit_controller_port;
 extern uint8_t br_config_is_slave;
 

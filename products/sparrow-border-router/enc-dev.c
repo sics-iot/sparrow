@@ -128,7 +128,6 @@ static uint32_t send_delay = 0;
 static uint8_t is_using_ack = 0;
 static uint8_t is_using_nack = 0;
 static uint8_t has_received_seqno = 0;
-uint8_t verbose_output = 1;
 
 #define WITH_FLOW_CONTROL 0
 #if WITH_FLOW_CONTROL
@@ -447,34 +446,11 @@ is_sensible_string(const unsigned char *s, int len)
 }
 /*---------------------------------------------------------------------------*/
 
-int
-check_encap(unsigned char *data, int len)
-{
-  int enclen;
-  sparrow_encap_pdu_info_t pinfo;
-
-  enclen = sparrow_encap_parse_and_verify(data, len, &pinfo);
-  if(enclen < 0) {
-    if(enclen == SPARROW_ENCAP_ERROR_BAD_CHECKSUM) {
-      YLOG_ERROR("Packet input failed Bad CRC, len:%d, enclen:%d\n",
-                 len, enclen);
-      PRINTF("CRC should have been: %lx\n", (unsigned long)crc32(data, len - 4));
-    }
-    if(br_config_verbose > 0) {
-      YLOG_ERROR("Packet input failed over SLIP-enc: %d\n => error:%d\n",
-                 len, enclen);
-    }
-    return 0;
-  }
-
-  return enclen; /* number of bytes to remove excl. 4 bytes CRC */
-}
-/*---------------------------------------------------------------------------*/
 static void
 serial_packet_input(const uint8_t *data, int len)
 {
   packetbuf_copyfrom(data, len);
-  if(br_config_verbose > 0) {
+  if(br_config_verbose_output > 1) {
     YLOG_DEBUG("Packet input over serial: %d\n", len);
   }
 
@@ -489,7 +465,7 @@ send_report(void)
   buf[1] = (last_received_seqno >> 16) & 0xff;
   buf[2] = (last_received_seqno >> 8) & 0xff;
   buf[3] = last_received_seqno & 0xff;
-  if(verbose_output) {
+  if(br_config_verbose_output > 2) {
     PRINTF("O ACK %u\n", last_received_seqno);
   }
   write_to_slip_payload_type(buf, 4, SPARROW_ENCAP_PAYLOAD_RECEIVE_REPORT);
@@ -566,9 +542,7 @@ serial_input(void)
             printf("\n");
           }
         } else {
-          /* this should come in encap frames */
-          /* enclen = check_encap(inbuf, inbufptr); */
-          if(verbose_output > 2) {
+          if(br_config_verbose_output > 4) {
             printf("IN(%03u): ", inbufptr);
             for(i = 0; i < inbufptr; i++) printf("%02x", inbuf[i]);
             printf("\n");
@@ -579,9 +553,16 @@ serial_input(void)
           enclen = sparrow_encap_parse_and_verify(inbuf, inbufptr, &pinfo);
           if(enclen <  0) {
             BRM_STATS_INC(BRM_STATS_ENCAP_ERRORS);
-            if(verbose_output) {
-              YLOG_ERROR("Error - failed enc check (enc:%d len:%d)\n", enclen, inbufptr);
-              if(verbose_output < 3 && verbose_output > 1) {
+            if(br_config_verbose_output) {
+              if(enclen == SPARROW_ENCAP_ERROR_BAD_CHECKSUM) {
+                YLOG_ERROR("packet input failed (bad CRC), len: %d, error: %d\n",
+                           inbufptr, enclen);
+              } else {
+                YLOG_ERROR("packet input failed, len: %d, error: %d\n",
+                           inbufptr, enclen);
+              }
+
+              if(br_config_verbose_output > 1 && br_config_verbose_output < 5) {
                 for(i = 0; i < inbufptr; i++) printf("%02x", inbuf[i]);
                 printf("\n");
               }
@@ -589,8 +570,6 @@ serial_input(void)
             if(has_received_seqno && is_using_nack) {
               send_report();
             }
-            /* pinfo.payload_len = inbufptr; */
-            /* pinfo.payload_type = SPARROW_ENCAP_PAYLOAD_SERIAL; // XXX: to get old style parser of bad packet. remove. */
 
             /* empty the input buffer and continue */
             inbufptr = 0;
@@ -611,7 +590,7 @@ serial_input(void)
 
               if(seqno == last_received_seqno) {
                 /* This packet has already been received */
-                if(verbose_output) {
+                if(br_config_verbose_output > 2) {
                   YLOG_DEBUG("I S *** dup %u\n", seqno);
                 }
                 send_report();
@@ -621,7 +600,7 @@ serial_input(void)
 
               if(last_received_seqno - seqno < 50) {
                 /* Received an older packet - drop it quietly */
-                if(verbose_output) {
+                if(br_config_verbose_output > 2) {
                   YLOG_DEBUG("I S *** drop %u (%u)\n", seqno, last_received_seqno);
                 }
                 inbufptr = 0;
@@ -631,7 +610,7 @@ serial_input(void)
               has_received_seqno = 1;
             }
 
-            if(verbose_output) {
+            if(br_config_verbose_output > 2) {
               PRINTF("I S %u\n", seqno);
             }
 
@@ -648,21 +627,8 @@ serial_input(void)
             } else if(inbuf[enclen] == '?') {
               /* no queries expected over slip? */
             } else {
-              if(br_config_verbose > 2) {
-                YLOG_DEBUG("Packet from serial of length %d - write TUN\n", inbufptr);
-                if(br_config_verbose > 4) {
-                  printf("         ");
-                  for(i = 0; i < inbufptr; i++) {
-                    printf("%02x", inbuf[i]);
-                    if((i & 3) == 3) {
-                      printf(" ");
-                    }
-                    if((i & 15) == 15) {
-                      printf("\n         ");
-                    }
-                  }
-                  printf("\n");
-                }
+              if(br_config_verbose_output > 1) {
+                YLOG_DEBUG("Raw packet from serial of length %d\n", inbufptr);
               }
               serial_packet_input(&inbuf[enclen], pinfo.payload_len);
             }
@@ -675,7 +641,7 @@ serial_input(void)
             seqno |= inbuf[enclen + 2] << 8;
             seqno |= inbuf[enclen + 3];
 
-            if(verbose_output) {
+            if(br_config_verbose_output > 2) {
               PRINTF("I report: %u (%u)\n", seqno, last_sent_seqno);
             }
 
@@ -687,7 +653,7 @@ serial_input(void)
               } else if(seqno + 1 == last_sent_packet->seqno) {
                 if(last_sent_packet->tx < PACKET_MAX_TRANSMISSIONS) {
                   /* Retransmit last packet */
-                  if(verbose_output) {
+                  if(br_config_verbose_output > 2) {
                     YLOG_DEBUG("I *** R: %u < %u\n", seqno, last_sent_packet->seqno);
                   }
                   list_push(pending_packets, last_sent_packet);
@@ -733,18 +699,6 @@ serial_input(void)
     default:
       inbuf[inbufptr++] = c;
       state = 0;
-      /* Echo lines as they are received for verbose=2,3,5+ */
-      /* Echo all printable characters for verbose==4 */
-      if(br_config_verbose == 4) {
-        if(c == 0 || c == '\r' || c == '\n' || c == '\t' || (c >= ' ' && c <= '~')) {
-          fwrite(&c, 1, 1, stdout);
-        }
-      } else if(br_config_verbose >= 2) {
-        if(c == '\n' && is_sensible_string(inbuf, inbufptr)) {
-          fwrite(inbuf, inbufptr, 1, stdout);
-          inbufptr = 0;
-        }
-      }
       break;
     }
 
@@ -780,12 +734,12 @@ ack_retransmit(void *ptr)
 {
   if(last_sent_packet != NULL) {
     if(last_sent_packet->tx < PACKET_MAX_TRANSMISSIONS) {
-      if(verbose_output) {
+      if(br_config_verbose_output > 2) {
         YLOG_DEBUG("O *** auto R: %u\n", last_sent_packet->seqno);
       }
       list_push(pending_packets, last_sent_packet);
     } else {
-      if(verbose_output) {
+      if(br_config_verbose_output > 2) {
         YLOG_DEBUG("O *** no ack: %u\n", last_sent_packet->seqno);
       }
       free_packet(last_sent_packet);
@@ -843,9 +797,17 @@ slip_flushbuf(int fd)
     slip_begin = slip_end = 0;
     if(active_packet->type == PACKET_SEQNO) {
       last_sent_seqno = active_packet->seqno;
-      if(verbose_output) {
+      if(br_config_verbose_output > 2) {
         PRINTF("O send %u/%u\n", last_sent_seqno, next_seqno - 1);
       }
+    }
+
+    if(br_config_verbose_output > 4) {
+      printf("OUT(%03u): ", active_packet->len);
+      for(i = 0; i < active_packet->len; i++) {
+        printf("%02x", active_packet->data[i]);
+      }
+      printf("\n");
     }
 
     slip_buf[slip_end++] = SLIP_END;
@@ -866,7 +828,7 @@ slip_flushbuf(int fd)
     }
     slip_buf[slip_end++] = SLIP_END;
 
-    if(verbose_output) {
+    if(br_config_verbose_output > 2) {
       PRINTF("send %u/%u\n", slip_end, active_packet->len);
     }
   }
@@ -919,7 +881,6 @@ write_to_serial(int outfd, const uint8_t *inbuf, int len, uint8_t payload_type)
   uint8_t finger[4];
   int enc_res;
   int use_seqno = 0;
-  int i;
   uint32_t crc_value;
   sparrow_encap_pdu_info_t pinfo;
   packet_t *packet;
@@ -929,28 +890,9 @@ write_to_serial(int outfd, const uint8_t *inbuf, int len, uint8_t payload_type)
     return;
   }
 
-  if(br_config_verbose > 2) {
-#ifdef __CYGWIN__
-    printf("Packet from WPCAP of length %d - write serial\n", len);
-#else
-    printf("Packet from TUN of length %d - write serial\n", len);
-#endif
-    if(br_config_verbose > 4) {
-      printf("         ");
-      for(i = 0; i < len; i++) {
-        printf("%02x", p[i]);
-        if((i & 3) == 3) printf(" ");
-        if((i & 15) == 15) printf("\n         ");
-      }
-      printf("\n");
-    }
-  }
-
   packet = alloc_packet();
   if(packet == NULL) {
     /* alloc_packet will log the overflow */
-    /* fprintf(stderr, "*** packets overflow\n"); */
-    /* BRM_STATS_DEBUG_INC(BRM_STATS_DEBUG_SLIP_OVERFLOWS); */
     return;
   }
 
