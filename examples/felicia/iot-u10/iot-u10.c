@@ -31,6 +31,10 @@
 #if WITH_WEBSERVER
 #include "node-webserver-simple.h"
 #endif
+#if WITH_IPSO
+#include "lwm2m-engine.h"
+#include "ipso-objects.h"
+#endif
 #include "resources-coap.h"
 #include "dev/button-sensor.h"
 #include "dev/slide-switch.h"
@@ -46,6 +50,36 @@
 PROCESS(felicia_main, "felicia main");
 AUTOSTART_PROCESSES(&felicia_main);
 
+#if WITH_IPSO
+#ifndef REGISTER_WITH_LWM2M_BOOTSTRAP_SERVER
+#define REGISTER_WITH_LWM2M_BOOTSTRAP_SERVER 1
+#endif
+
+#ifndef REGISTER_WITH_LWM2M_SERVER
+#define REGISTER_WITH_LWM2M_SERVER 1
+#endif
+
+#ifndef LWM2M_SERVER_ADDRESS
+#define LWM2M_SERVER_ADDRESS "fd00::1"
+#endif
+
+/*---------------------------------------------------------------------------*/
+static void
+setup_lwm2m_servers(void)
+{
+#ifdef LWM2M_SERVER_ADDRESS
+  uip_ipaddr_t addr;
+  if(uiplib_ipaddrconv(LWM2M_SERVER_ADDRESS, &addr)) {
+    lwm2m_engine_register_with_bootstrap_server(&addr, 0);
+    lwm2m_engine_register_with_server(&addr, 0);
+  }
+#endif /* LWM2M_SERVER_ADDRESS */
+
+  lwm2m_engine_use_bootstrap_server(REGISTER_WITH_LWM2M_BOOTSTRAP_SERVER);
+  lwm2m_engine_use_registration_server(REGISTER_WITH_LWM2M_SERVER);
+}
+/*---------------------------------------------------------------------------*/
+#endif
 PROCESS_THREAD(felicia_main, ev, data)
 {
   static struct etimer timer;
@@ -66,21 +100,35 @@ PROCESS_THREAD(felicia_main, ev, data)
   rest_activate_resource(&resource_rpl_link_metric, (char *)"rpl-info/link-metric");
 
 #if PLATFORM_HAS_SLIDE_SWITCH
-    SENSORS_ACTIVATE(slide_switch_sensor);
+  SENSORS_ACTIVATE(slide_switch_sensor);
 #endif
 
 #if PLATFORM_HAS_BUTTON
-    SENSORS_ACTIVATE(button_sensor);
-    rest_activate_resource(&resource_push_button_event, (char *)"push-button");
+  SENSORS_ACTIVATE(button_sensor);
+  rest_activate_resource(&resource_push_button_event, (char *)"push-button");
 #endif
 
 #if PLATFORM_HAS_SENSORS
-    rest_activate_resource(&resource_temperature, (char *)"temperature");
+  rest_activate_resource(&resource_temperature, (char *)"temperature");
 #endif
 
-#if WITH_WEBSERVER
   PROCESS_PAUSE();
+
+#if WITH_WEBSERVER
   process_start(&node_webserver_simple_process, NULL);
+#endif
+
+#if WITH_IPSO
+  /* Initialize the OMA LWM2M engine */
+  lwm2m_engine_init();
+
+  /* Register default LWM2M objects */
+  lwm2m_engine_register_default_objects();
+
+  /* Register default IPSO objects */
+  ipso_objects_init();
+
+  setup_lwm2m_servers();
 #endif
 
   while(1) {
@@ -88,17 +136,17 @@ PROCESS_THREAD(felicia_main, ev, data)
     PROCESS_WAIT_EVENT();
 
 #if PLATFORM_HAS_BUTTON
-      if(ev == sensors_event && data == &button_sensor) {
-        resource_push_button_event.trigger();
-        PRINTF("Button pressed!\n");
-      }
+    if(ev == sensors_event && data == &button_sensor) {
+      resource_push_button_event.trigger();
+      PRINTF("Button pressed!\n");
+    }
 #endif
 
 #if PLATFORM_HAS_SLIDE_SWITCH
-      if(ev == sensors_event && data == &slide_switch_sensor) {
-        PRINTF("Sliding switch is %s\n",
-               slide_switch_sensor.value(0) ? "on" : "off");
-      }
+    if(ev == sensors_event && data == &slide_switch_sensor) {
+      PRINTF("Sliding switch is %s\n",
+             slide_switch_sensor.value(0) ? "on" : "off");
+    }
 #endif
   }
 

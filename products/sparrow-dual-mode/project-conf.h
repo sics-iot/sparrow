@@ -89,7 +89,7 @@ dual_mode_op_mode_t dual_mode_get_op_mode(void);
 #define PRODUCT_LABEL_STANDARD_MODE "Node"
 #define PRODUCT_LABEL ((dual_mode_get_op_mode() == DUAL_MODE_OP_MODE_STANDARD) ? (PRODUCT_LABEL_STANDARD_MODE) : (PRODUCT_LABEL_SERIAL_RADIO))
 #else
-#define PRODUCT_LABEL "Dual-Op-Mode"
+#define PRODUCT_LABEL "Sparrow Dual-Op"
 #endif
 
 #define SERIAL_RADIO_CONTROL_API_VERSION 3L

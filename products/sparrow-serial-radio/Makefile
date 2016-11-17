@@ -28,6 +28,12 @@ ifeq ($(TARGET),native-sparrow)
  ${error The serial radio can not be built for the native platform.}
 endif
 
+ifeq ($(TARGET),zoul-sparrow)
+  ifdef USE_DEBUG_PORT
+    CFLAGS += -DZOUL_SPARROW_USB_DEBUG_PORT
+  endif
+endif
+
 #linker optimizations
 SMALL=1
 

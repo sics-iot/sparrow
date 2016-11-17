@@ -1,0 +1,20 @@
+sparrow-er-coap_src = er-coap.c er-coap-engine.c er-coap-transactions.c      \
+  er-coap-observe.c er-coap-separate.c er-coap-res-well-known-core.c \
+  er-coap-block1.c er-coap-observe-client.c er-coap-context.c
+
+# Erbium will implement the REST Engine
+CFLAGS += -DREST=coap_rest_implementation
+
+ifdef MAKE_WITH_DTLS
+ifeq (${wildcard $(SPARROW)/apps/tinydtls/Makefile.tinydtls},)
+${error Could not find the tinyDTLS submodule. Please run "git submodule update --init" and try again}
+endif
+
+APPS += tinydtls/aes tinydtls/sha2 tinydtls/ecc tinydtls
+include $(SPARROW)/apps/tinydtls/Makefile.tinydtls
+
+ifeq ($(TARGET),felicia)
+# Disable watchdog with DTLS
+CFLAGS += -DWATCHDOG_CONF_ENABLE=0
+endif
+endif

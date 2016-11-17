@@ -15,17 +15,24 @@ APPS += sparrow-instances/stts751
 APPS += sparrow-instances/instance-leds
 APPS += sparrow-instances/instance-button
 APPS += sparrow-instances/instance-nstats
-APPS += er-coap
+APPS += sparrow-er-coap
 APPS += rest-engine
 APPS += mote-res/resources-coap
 APPS += mote-res/resources-common
 
-ifdef WITH_NETSCAN
+ifdef MAKE_WITH_NETSCAN
 APPS += netscan
 endif
 
-ifdef WITH_WEBSERVER
+ifdef MAKE_WITH_WEBSERVER
 APPS += mote-res/resources-web
+endif
+
+ifdef MAKE_WITH_IPSO
+APPS += oma-lwm2m
+APPS += ipso-objects
+CONTIKI_SOURCEFILES += stts751-ipso-temperature.c
+CFLAGS += -DWITH_IPSO=1
 endif
 
 CONTIKI_WITH_IPV6 = 1

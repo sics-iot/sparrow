@@ -52,7 +52,7 @@ uint8_t *USB_SERIAL_RADIO_GET_PRODUCT_DESCRIPTION(void);
 struct product {
   uint8_t size;
   uint8_t type;
-  uint16_t string[25];
+  uint16_t string[12];
 };
 
 /* Use generic product name */
@@ -60,7 +60,7 @@ static const struct product product = {
   sizeof(product),
   3,
   {
-    'D','u','a','l','-','o','p',' ','N','o','d','e',' ','M','o','d','e'
+    'S','p','a','r','r','o','w',' ','N','o','d','e'
   }
 };
 
