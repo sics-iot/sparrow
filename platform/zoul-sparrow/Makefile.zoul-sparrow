@@ -23,6 +23,14 @@ endif
 
 CFLAGS += -DCONTIKI_TARGET_ZOUL=1
 
+ifdef MAKE_WITH_868
+  CFLAGS+=-DWITH_868=1
+endif
+
+ifdef MAKE_WITH_920
+  CFLAGS+=-DWITH_920=1
+endif
+
 ifeq ($(BOARD), remote)
   IMAGE_TYPE = $(IMAGE_TYPE_REMOTE)
 else ifeq ($(BOARD), firefly)
