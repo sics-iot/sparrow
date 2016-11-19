@@ -11,5 +11,13 @@ CONTIKI_SOURCEFILES += ${notdir ${wildcard ${addsuffix /*.c,$(SPARROWDIRS)}}}
 APPDIRS     += $(SPARROW)/apps
 TARGETDIRS  += $(SPARROW)/platform
 
+ifdef MAKE_WITH_LLSEC_LEVEL
+  ifeq ($(shell test $(MAKE_WITH_LLSEC_LEVEL) -gt 7; echo $$?),0)
+    ${error link layer security level must below 8}
+  else
+    CFLAGS += -DLLSEC_CONF_LEVEL=$(MAKE_WITH_LLSEC_LEVEL)
+  endif
+endif
+
 # Include sparrow custom version of Contiki Makefile.include
 include $(SPARROW)/Makefile.include
