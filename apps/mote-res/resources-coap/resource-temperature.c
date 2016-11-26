@@ -33,9 +33,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if PLATFORM_HAS_SENSORS
-#include "stts751.h"
-#endif
 
 static void res_get_handler(void *request, void *response, uint8_t *buffer,
   uint16_t preferred_size, int32_t *offset);
@@ -44,15 +41,15 @@ static void res_get_handler(void *request, void *response, uint8_t *buffer,
 static uint16_t
 print_temperature(char *msg)
 {
-#if PLATFORM_HAS_SENSORS
-  uint32_t millikelvin = stts751_millikelvin();
+#if PLATFORM_HAS_SENSORS && defined(PLATFORM_GET_TEMPERATURE)
+  uint32_t millikelvin = PLATFORM_GET_TEMPERATURE();
   int32_t celcius_int_part = millikelvin/1000-273;
   uint8_t celcius_dec_part = (millikelvin/100) - (millikelvin/1000)*10;
   sprintf(msg+strlen(msg),"Temperature (C): %2ld.%u",
     celcius_int_part, celcius_dec_part);
 #else
   sprintf(msg+strlen(msg),"Temperature (C): %2ld.%u",
-    0, 0);
+    0L, 0);
 #endif
 
   return strlen(msg);

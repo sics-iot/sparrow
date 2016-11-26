@@ -35,11 +35,10 @@
  */
 
 #include "contiki.h"
+#include "sys/uptime.h"
 #include "dev/watchdog.h"
 #include "dev/i2c.h"
-#include "sparrow-oam.h"
 #include "stts751.h"
-#include "instance-temperature-var.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -57,48 +56,14 @@ static uint8_t stts751_write_register(uint64_t when, uint8_t reg, uint8_t data);
 static uint8_t stts751_read_register(uint64_t when, uint8_t reg, uint8_t *data);
 static uint8_t stts751_send_byte(uint64_t when, uint8_t reg);
 static uint8_t stts751_receive_byte(uint64_t when, uint8_t *data);
-static uint8_t stts751_configure(uint64_t when);
 
 /*---------------------------------------------------------------------------*/
-
-/**
- * Process a request TLV.
- *
- * Writes a response TLV starting at "reply", ni more than "len"
- * bytes.
- *
- * if the "request" is of type vectorAbortIfEqualRequest or
- * abortIfEqualRequest, and processing should be aborted,
- * "oam_processing" is set to SPARROW_OAM_PROCESSING_ABORT_TLV_STACK.
- *
- * Returns number of bytes written to "reply".
- */
-static size_t
-process_request(const sparrow_oam_instance_t *instance,
-                sparrow_tlv_t *request, uint8_t *reply, size_t len,
-                sparrow_oam_processing_t *oam_processing)
+uint32_t
+stts751_errorval(void)
 {
-  uint8_t error = SPARROW_TLV_ERROR_NO_ERROR;
-  uint32_t local_data;
-  if((request->opcode == SPARROW_TLV_OPCODE_SET_REQUEST) || (request->opcode == SPARROW_TLV_OPCODE_VECTOR_SET_REQUEST)) {
-    error = SPARROW_TLV_ERROR_WRITE_ACCESS_DENIED;
-  } else if((request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) || (request->opcode == SPARROW_TLV_OPCODE_VECTOR_GET_REQUEST)) {
-
-    if(request->variable == VARIABLE_TEMPERATURE) {
-      local_data = stts751_millikelvin();
-      if(local_data != STTS751_MILLIKELVIN_ERRORVAL) {
-        return sparrow_tlv_write_reply32int(request, reply, len, local_data);
-      } else {
-        return sparrow_tlv_write_reply_error(request, SPARROW_TLV_ERROR_HARDWARE_ERROR, reply, len);
-      }
-    }
-
-    return sparrow_tlv_write_reply_error(request, SPARROW_TLV_ERROR_UNKNOWN_VARIABLE, reply, len);
-  }
-  return sparrow_tlv_write_reply_error(request, error, reply, len);
+  return STTS751_MILLIKELVIN_ERRORVAL;
 }
 /*---------------------------------------------------------------------------*/
-
 static uint8_t
 stts751_configure(uint64_t when)
 {
@@ -262,20 +227,4 @@ stts751_millikelvin(void)
   }
   return STTS751_MILLIKELVIN_ERRORVAL;
 }
-/*---------------------------------------------------------------------------*/
-
-static void
-init(const sparrow_oam_instance_t *instance)
-{
-  instance->data->event_array[1] = 1;
-
-  PRINTF("stts751: get-temp %lu\n", stts751_millikelvin());
-}
-/*---------------------------------------------------------------------------*/
-SPARROW_OAM_INSTANCE(stts751,
-                     INSTANCE_TEMPERATURE_OBJECT_TYPE,
-                     INSTANCE_TEMPERATURE_LABEL,
-                     instance_temperature_variables,
-                     .init = init,
-                     .process_request = process_request);
 /*---------------------------------------------------------------------------*/

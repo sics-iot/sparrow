@@ -89,9 +89,13 @@ PROCESS_THREAD(felicia_main, ev, data)
   /* Initialize the CoAP server and activate resources */
   rest_init_engine();
 #if PLATFORM_HAS_LEDS
+#ifdef RESOURCE_LED0_CONF_LED
   rest_activate_resource(&resource_led, (char *)"led");
   rest_activate_resource(&resource_led0, (char *)"led/0");
+#endif
+#ifdef RESOURCE_LED1_CONF_LED
   rest_activate_resource(&resource_led1, (char *)"led/1");
+#endif
 #endif
   rest_activate_resource(&resource_ipv6_neighbors, (char *)"ipv6/neighbors");
   rest_activate_resource(&resource_rpl_info, (char *)"rpl-info");

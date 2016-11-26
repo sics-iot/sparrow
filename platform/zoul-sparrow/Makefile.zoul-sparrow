@@ -58,7 +58,7 @@ CONTIKI_TARGET_DIRS += ${addprefix ../../contiki/,platform/zoul platform/zoul/de
 
 ### Include
 CONTIKI_TARGET_SOURCEFILES += contiki-main.c cc1200-zoul-arch.c
-CONTIKI_TARGET_SOURCEFILES += leds-arch.c leds-ext-arch.c
+CONTIKI_TARGET_SOURCEFILES += leds-res-arch.c leds-ext-arch.c temperature-arch.c
 CONTIKI_TARGET_SOURCEFILES += adc-zoul.c button-sensor.c zoul-sensors.c
 CONTIKI_TARGET_SOURCEFILES += $(BOARD_SOURCEFILES)
 

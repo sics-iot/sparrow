@@ -56,8 +56,8 @@
 #define PRINTF(...)
 #endif
 
-#if LEDS_ALL & LEDS_YELLOW || LEDS_ALL & LEDS_GREEN
-#define LEDS_CONTROL_NUMBER (((LEDS_ALL & LEDS_YELLOW) ? 1 : 0) + ((LEDS_ALL & LEDS_GREEN) ? 1 : 0))
+#ifdef LEDS_CONTROL_CONF_NUMBER
+#define LEDS_CONTROL_NUMBER LEDS_CONTROL_CONF_NUMBER
 #else
 #define LEDS_CONTROL_NUMBER 1
 #endif
@@ -121,10 +121,22 @@ write_state(lwm2m_context_t *ctx, const uint8_t *inbuf, size_t insize,
 static char *
 get_color(int value) {
   switch(value) {
-  case LEDS_YELLOW:
-    return "Yellow";
+#if LEDS_RED
+  case LEDS_RED:
+    return "Red";
+#endif
+#if LEDS_GREEN
   case LEDS_GREEN:
     return "Green";
+#endif
+#if LEDS_BLUE
+  case LEDS_BLUE:
+    return "Blue";
+#endif
+#if LEDS_YELLOW
+  case LEDS_YELLOW:
+    return "Yellow";
+#endif
   }
   return "None";
 }

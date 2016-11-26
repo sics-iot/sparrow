@@ -283,7 +283,8 @@ function getTypeButtons(type, address) {
 	// generate the buttons for the Zoul RE-MOTE
 	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
-	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',2)">Led 3 Toggle</button>&nbsp;';
+	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',2)">Led 3 Toggle</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="temp_read(\'' + address + '\')">Read Temp</button>';
     }
     return buttons;
 }

@@ -11,7 +11,7 @@ all: $(CONTIKI_PROJECT)
 
 APPS += sparrow-oam
 APPS += sparrow-instances/instance-flash
-APPS += sparrow-instances/stts751
+APPS += sparrow-instances/instance-temperature
 APPS += sparrow-instances/instance-leds
 APPS += sparrow-instances/instance-button
 APPS += sparrow-instances/instance-nstats
@@ -31,7 +31,7 @@ endif
 ifdef MAKE_WITH_IPSO
 APPS += oma-lwm2m
 APPS += ipso-objects
-CONTIKI_SOURCEFILES += stts751-ipso-temperature.c
+CONTIKI_SOURCEFILES += platform-ipso-temperature.c
 CFLAGS += -DWITH_IPSO=1
 endif
 

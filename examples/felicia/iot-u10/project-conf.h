@@ -41,12 +41,21 @@
 #define LWM2M_DEVICE_SERIAL_NO    "90DA0301010501"
 #endif
 
-#define IPSO_TEMPERATURE stts751_ipso_temperature
+#define IPSO_TEMPERATURE platform_ipso_temperature
+
+#define INSTANCE_TEMPERATURE_ARCH_INIT stts751_millikelvin
+uint32_t INSTANCE_TEMPERATURE_ARCH_INIT(void);
+
+#define INSTANCE_TEMPERATURE_ARCH_READVAL stts751_millikelvin
+#define INSTANCE_TEMPERATURE_ARCH_ERRORVAL stts751_errorval
+
+#define RESOURCE_LED0_CONF_LED    LEDS_YELLOW
+#define RESOURCE_LED1_CONF_LED    LEDS_GREEN
+
+#define LEDS_CONTROL_CONF_NUMBER	2
 
 #define USB_SERIAL_CONF_ENABLE 1
 #define DBG_CONF_USB 1
-
-
 
 /* Network statistics */
 #define RPL_CONF_STATS 1
