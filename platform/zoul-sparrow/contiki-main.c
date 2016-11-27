@@ -116,6 +116,9 @@ dual_mode_get_op_mode(void)
 /*---------------------------------------------------------------------------*/
 #endif /* PLATFORM_WITH_DUAL_MODE */
 /*---------------------------------------------------------------------------*/
+
+char *sparrow_radio_name = NULL;
+
 /** \brief Board specific iniatialisation */
 void board_init(void);
 /*---------------------------------------------------------------------------*/
@@ -274,6 +277,7 @@ main(void)
   PRINTF("%s\n", NETSTACK_MAC.name);
   PRINTF(" RDC: ");
   PRINTF("%s\n", NETSTACK_RDC.name);
+  sparrow_radio_name =  &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200";
   PRINTF(" PHY: %s\n",
          &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200");
   PRINTF(" PAN-ID: 0x%04x\n", IEEE802154_PANID);
