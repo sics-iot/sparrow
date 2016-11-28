@@ -133,14 +133,26 @@ get_color(int value) {
   case LEDS_BLUE:
     return "Blue";
 #endif
+#if LEDS_LIGHT_BLUE
+  case LEDS_LIGHT_BLUE:
+    return "Light Blue";
+#endif
 #if LEDS_YELLOW
   case LEDS_YELLOW:
     return "Yellow";
 #endif
+#if LEDS_PURPLE
+  case LEDS_PURPLE:
+    return "Purple";
+#endif
+#if LEDS_WHITE
+  case LEDS_WHITE:
+    return "White";
+#endif
   }
   return "None";
 }
-
+/*---------------------------------------------------------------------------*/
 static int
 read_color(lwm2m_context_t *ctx, uint8_t *outbuf, size_t outsize)
 {
