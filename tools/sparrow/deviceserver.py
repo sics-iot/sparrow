@@ -587,16 +587,6 @@ class DeviceServer:
             print "Error - could not bind to the address", self.udp_address
             return False
 
-        # set radio channel
-        t1 = tlvlib.create_set_tlv32(self.radio_instance,
-                                     tlvlib.VARIABLE_RADIO_CHANNEL,
-                                     self.radio_channel)
-        # set radio PAN ID
-        t2 = tlvlib.create_set_tlv32(self.radio_instance,
-                                     tlvlib.VARIABLE_RADIO_PAN_ID,
-                                     self.radio_panid)
-        tlvlib.send_tlv([t1,t2], self.router_host)
-
         # set-up beacon to ...
         IPv6Str = binascii.hexlify(socket.inet_pton(socket.AF_INET6, self.udp_address))
         BEACON = "fe02010a020090da01%08x"%self.location + "18020090da03" + IPv6Str + "%4x"%self.udp_port + "000000"
@@ -611,6 +601,17 @@ class DeviceServer:
 #        print "Result:"
 #        tlvlib.print_tlv(t[0])
         return True
+
+    def set_channel_panid(self):
+        # set radio channel
+        t1 = tlvlib.create_set_tlv32(self.radio_instance,
+                                     tlvlib.VARIABLE_RADIO_CHANNEL,
+                                     self.radio_channel)
+        # set radio PAN ID
+        t2 = tlvlib.create_set_tlv32(self.radio_instance,
+                                     tlvlib.VARIABLE_RADIO_PAN_ID,
+                                     self.radio_panid)
+        tlvlib.send_tlv([t1,t2], self.router_host)
 
     def serve_forever(self):
         # Initialize if not already initialized
@@ -755,5 +756,6 @@ if __name__ == "__main__":
         print "Failed to connect to border router."
         sys.exit(1)
 
+    server.set_channel_panid()
     server.serve_forever()
     print "*** Error - device server stopped"
