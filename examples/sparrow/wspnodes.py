@@ -29,7 +29,7 @@
 
 import socket, binascii, wsplugin, tlvlib, thread, deviceserver, json, struct, urllib2, time
 
-RANK_DIVISOR = 256.0
+RANK_DIVISOR = 128.0
 
 def fetch_routes(ip):
     print "fetching routes from:", ip
@@ -136,4 +136,3 @@ class NodeCommands(wsplugin.DemoPlugin):
         topology["edges"] = edges
         print "Sending json: ",json.dumps({'topology':topology})
         ws.sendMessage(json.dumps({'topology':topology}))
-
