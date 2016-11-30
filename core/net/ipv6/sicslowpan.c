@@ -101,6 +101,10 @@ void uip_log(char *msg);
 #endif /* SICSLOWPAN_CONF_COMPRESSION */
 #endif /* SICSLOWPAN_COMPRESSION */
 
+#ifndef NETSTACK_CONF_USING_QUEUEBUF
+#define NETSTACK_CONF_USING_QUEUEBUF 1
+#endif /* NETSTACK_CONF_USING_QUEUEBUF */
+
 #define GET16(ptr,index) (((uint16_t)((ptr)[index] << 8)) | ((ptr)[(index) + 1]))
 #define SET16(ptr,index,value) do {     \
   (ptr)[index] = ((value) >> 8) & 0xff; \
@@ -1530,6 +1534,11 @@ output(const uip_lladdr_t *localdest)
      * IPv6/IPHC/HC_UDP dispatchs/headers.
      * The following fragments contain only the fragn dispatch.
      */
+#if NETSTACK_USING_QUEUEBUF
+    /*
+     * If the underlying MAC driver uses queue buffers, drop the packet if
+     * the required fragments are more than the available queue buffers.
+     */
     int estimated_fragments = ((int)uip_len) / (max_payload - SICSLOWPAN_FRAGN_HDR_LEN) + 1;
     int freebuf = queuebuf_numfree() - 1;
     PRINTFO("uip_len: %d, fragments: %d, free bufs: %d\n", uip_len, estimated_fragments, freebuf);
@@ -1537,6 +1546,10 @@ output(const uip_lladdr_t *localdest)
       PRINTFO("Dropping packet, not enough free bufs\n");
       return 0;
     }
+#else /* NETSTACK_USING_QUEUEBUF */
+    PRINTFO("uip_len: %d, fragments: %d\n", uip_len,
+            ((int)uip_len) / (max_payload - SICSLOWPAN_FRAGN_HDR_LEN) + 1);
+#endif /* NETSTACK_USING_QUEUEBUF */
 
     PRINTFO("Fragmentation sending packet len %d\n", uip_len);
 
