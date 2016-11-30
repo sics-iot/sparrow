@@ -5,9 +5,6 @@ endif
 SPARROW_TOOLS=$(SPARROW)/tools/sparrow
 
 SPARROWDIRS += $(SPARROW)/core ${addprefix $(SPARROW)/core/,dev net net/ip net/ipv6 net/rpl net/mac sys lib}
-ifneq ($(MAKE_WITH_868)$(MAKE_WITH_920),)
-  SPARROWDIRS += $(SPARROW)/dev/cc1200
-endif
 CONTIKIDIRS += $(SPARROWDIRS)
 CONTIKI_SOURCEFILES += ${notdir ${wildcard ${addsuffix /*.c,$(SPARROWDIRS)}}}
 
