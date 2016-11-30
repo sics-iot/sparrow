@@ -23,6 +23,14 @@ endif
 
 CFLAGS += -DCONTIKI_TARGET_ZOUL=1
 
+ifdef MAKE_WITH_868
+  CFLAGS+=-DWITH_868=1
+endif
+
+ifdef MAKE_WITH_920
+  CFLAGS+=-DWITH_920=1
+endif
+
 ifeq ($(BOARD), remote)
   IMAGE_TYPE = $(IMAGE_TYPE_REMOTE)
 else ifeq ($(BOARD), firefly)
@@ -50,7 +58,12 @@ CONTIKI_TARGET_DIRS += ${addprefix ../../contiki/,platform/zoul platform/zoul/de
 
 ### Include
 CONTIKI_TARGET_SOURCEFILES += contiki-main.c cc1200-zoul-arch.c
-CONTIKI_TARGET_SOURCEFILES += leds-arch.c leds-ext-arch.c
+ifeq ($(BOARD), remote)
+  CONTIKI_TARGET_SOURCEFILES += leds-res-arch.c
+else
+  CONTIKI_TARGET_SOURCEFILES += leds-arch.c
+endif
+CONTIKI_TARGET_SOURCEFILES += leds-ext-arch.c temperature-arch.c
 CONTIKI_TARGET_SOURCEFILES += adc-zoul.c button-sensor.c zoul-sensors.c
 CONTIKI_TARGET_SOURCEFILES += $(BOARD_SOURCEFILES)
 
@@ -69,7 +82,9 @@ include $(CONTIKI_CPU)/Makefile.cc2538
 
 MODULES += core/net core/net/mac \
            core/net/mac/contikimac \
-           core/net/llsec core/net/llsec/noncoresec dev/cc1200
+           core/net/llsec core/net/llsec/noncoresec
+
+EXTERNAL_MODULES += $(SPARROW)/dev/cc1200
 
 EXTERNAL_MODULES += $(SPARROW)/lib/image-trailer
 

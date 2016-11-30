@@ -38,6 +38,7 @@
 extern resource_t resource_led, \
                   resource_led0, \
                   resource_led1, \
+                  resource_led2, \
                   resource_ipv6_neighbors, \
                   resource_ipv6_routes, \
                   resource_push_button_event, \

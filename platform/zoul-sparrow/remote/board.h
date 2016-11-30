@@ -60,6 +60,7 @@
 
 #include "dev/gpio.h"
 #include "dev/nvic.h"
+
 /*---------------------------------------------------------------------------*/
 /** \name Connector headers
  *
@@ -68,63 +69,74 @@
  * ----------------------+---+---+---------------------------------------------
  * PIN_NAME              |JP6|JP5|   PIN_NAME
  * ----------------------+---+---+---------------------------------------------
- * LED1/EXT_WDT/PD5      |-01|18-|   PC6/SPI1.MISO/USD.MISO
- * LED2/UART1.CTS/PD4    |-02|17-|   PC5/SPI1.MOSI/USD.MOSI
- * LED3/UART1.RTS/PD3    |-03|16-|   PC4/SPI1.SCLK/USD.SCLK
- * UART0.RX/PA0          |-04|15-|   PA3/BUTTON.USER
- * UART0.TX/PA1          |-05|14-|   RESET/JTAG.RESET/BUTTON.RESET
- * SHUTDOWN_ENABLE/PD1   |-06|13-|   DGND
- * RTC.SDA/I2C.SDA/PC2   |-07|12-|   D+3.3
- * RTC.SCL/I2C.SCL/PC3   |-08|11-|   PA5/AIN5/ADC1
- * DGND                  |-09|10-|   PA4/RTC_INT1/AIN4/ADC2
- * D+3.3                 |-10|09-|   DGND
- * USD.CS/AIN7/PA7       |-11|08-|   D+5.1
- * SHUTDOWN_DONE/PD0     |-12|07-|   PA2/AIN2/ADC3
- * UART1.RX/PC1          |-13|06-|   JTAG.TMS
- * UART1.TX/PC0          |-14|05-|   JTAG.TCK
- * DGND                  |-15|04-|   PB7/JTAG.TDO
- * D+3.3                 |-16|03-|   PB6/JTAG.TDI
- * DGND                  |-17|02-|   PS+EXT
- * +VBAT                 |-18|01-|   DGND
+ * LED1.R/PD4            |-01|17-|   PB2/SPIO0.SCLK/CC1200.SCLK
+ * LED2.G/JTAG.TDO/PB7   |-02|16-|   PB1/SPIO0.MOSI/CC1200.MOSI
+ * LED3.B/JTAG.TDI/PB6   |-03|15-|   PB3/SPIO0.MISO/CC1200.MISO
+ * UART0.RX/PA0          |-04|14-|   PA7/AIN7/USD.CS|ADC5
+ * UART0.TX/PA1          |-05|13-|   DGND
+ * PD0                   |-06|12-|   D+3.3
+ * I2C.SDA/PC2           |-07|11-|   PA5/AIN5/ADC1
+ * I2C.SCL/PC3           |-08|10-|   PA4/AIN4/ADC2
+ * DGND                  |-09|09-|   DGND
+ * D+3.3                 |-10|08-|   D+5.0
+ * CC1200.GPIO0/PB4      |-11|07-|   PA2/AIN2/ADC3
+ * CC1200.GPIO2/PB0      |-12|06-|   PA6/AIN6/USD.SEL|ADC4
+ * UART1.RX/PC1          |-13|05-|   PC6/SPI1.MISO
+ * UART1.TX/PC0          |-14|04-|   PC5/SPI1.MOSI
+ * DGND                  |-15|03-|   PC4/SPI1.SCLK
+ * D+3.3                 |-16|02-|   PS+EXT/VIN
+ * CC1200.CS/PB5         |-17|01-|   DGND
  * ----------------------+---+---+---------------------------------------------
+ *
+ * Two auxiliary connectors allow to connect an external LiPo battery and
+ * access to the RESET/user buttons:
+ *
+ * - JP4 (placed below JP6 connector): |1-| DGND, |2-| VBAT
+ * - JP9 (placed above JP5 connector): |1-| BUTTON.RESET, |2-| BUTTON.USER|ADC6
  */
 /*---------------------------------------------------------------------------*/
 /** \name RE-Mote LED configuration
  *
- * LEDs on the RE-Mote are connected as follows:
- * - LED1 (Red)    -> PD5
- * - LED2 (Green)  -> PD4
- * - LED3 (Blue)   -> PD3
+ * LEDs on the RE-Mote are exposed in the JP6 port as follows:
+ * - LED1 (Red)    -> PD4
+ * - LED2 (Green)  -> PB7 (shared with JTAG.TDO)
+ * - LED3 (Blue)   -> PB6 (shared with JTAG.TDI)
  *
- * LED1 pin shared with EXT_WDT and exposed in JP6 connector
- * LED2 pin shared with UART1 CTS, pin exposed in JP6 connector
- * LED3 pin shared with UART1 RTS, exposed in JP6 connector
+ * The LEDs are connected to a MOSFET to minimize current draw.  The LEDs can
+ * be disabled by removing resistors R12, R13 and R14.
  * @{
  */
 /*---------------------------------------------------------------------------*/
-/* Some files include leds.h before us, so we need to get rid of defaults in
- * leds.h before we provide correct definitions */
 #undef LEDS_GREEN
 #undef LEDS_YELLOW
 #undef LEDS_BLUE
 #undef LEDS_RED
 #undef LEDS_CONF_ALL
 
-/* In leds.h the LEDS_BLUE is defined by LED_YELLOW definition */
-#define LEDS_GREEN    (1 << 4) /**< LED1 (Green) -> PD4 */
-#define LEDS_BLUE     (1 << 3) /**< LED2 (Blue)  -> PD3 */
-#define LEDS_RED      (1 << 5) /**< LED3 (Red)   -> PD5 */
+#define LEDS_RED              1           /**< LED1 (Red)   -> PD4 */
+#define LEDS_RED_PIN_MASK     (1 << 4)
+#define LEDS_RED_PORT_BASE    GPIO_D_BASE
 
-#define LEDS_CONF_ALL (LEDS_GREEN | LEDS_BLUE | LEDS_RED)
+#define LEDS_GREEN            2           /**< LED2 (Green) -> PB7 */
+#define LEDS_GREEN_PIN_MASK   (1 << 7)
+#define LEDS_GREEN_PORT_BASE  GPIO_B_BASE
 
-#define LEDS_LIGHT_BLUE (LEDS_GREEN | LEDS_BLUE) /**< Green + Blue (24)       */
-#define LEDS_YELLOW     (LEDS_GREEN | LEDS_RED)  /**< Green + Red  (48)       */
-#define LEDS_PURPLE     (LEDS_BLUE  | LEDS_RED)  /**< Blue + Red   (40)       */
-#define LEDS_WHITE      LEDS_ALL                 /**< Green + Blue + Red (56) */
+#define LEDS_BLUE             4           /**< LED3 (Blue)  -> PB6 */
+#define LEDS_BLUE_PIN_MASK    (1 << 6)
+#define LEDS_BLUE_PORT_BASE   GPIO_B_BASE
+
+#define LEDS_CONF_ALL         (LEDS_GREEN | LEDS_BLUE | LEDS_RED) /* 7 */
+#define LEDS_LIGHT_BLUE       (LEDS_GREEN | LEDS_BLUE)            /* 6 */
+#define LEDS_YELLOW           (LEDS_GREEN | LEDS_RED)             /* 3 */
+#define LEDS_PURPLE           (LEDS_BLUE  | LEDS_RED)             /* 5 */
+#define LEDS_WHITE            LEDS_ALL                            /* 7 */
 
 /* Notify various examples that we have LEDs */
 #define PLATFORM_HAS_LEDS        1
 #define PLATFORM_HAS_LEDS_EXT    1
+#define PLATFORM_HAS_SENSORS 1
+#define PLATFORM_GET_TEMPERATURE temperature_millikelvin
+uint32_t PLATFORM_GET_TEMPERATURE(void);		
 /** @} */
 /*---------------------------------------------------------------------------*/
 /** \name USB configuration

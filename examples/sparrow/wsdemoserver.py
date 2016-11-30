@@ -38,7 +38,7 @@ sys.path.append("../../tools/sparrow")
 
 DEBUG = 0
 
-import subprocess, thread, string, tlvlib, socket, binascii
+import sys, subprocess, thread, string, tlvlib, socket, binascii
 from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer
 import json, deviceserver, struct, wspserial, wsptlvs, wspnodes
 import httpd
@@ -155,22 +155,6 @@ def setup_state():
     global nbr_address
     global device_manager
 
-    device_manager = deviceserver.DeviceServer()
-    try:
-        if not device_manager.setup():
-            print "No border router found. Please make sure a border router is running!"
-            sys.exit(1)
-            return
-    except socket.timeout:
-        print "No border router found. Please make sure a border router is running!"
-        sys.exit(1)
-        return
-    except Exception as e:
-        print e
-        print "Failed to connect to border router."
-        sys.exit(1)
-        return
-
     nbr_address = device_manager.router_address
     if nbr_address == None:
         print "Did not find the address of the border router"
@@ -285,8 +269,40 @@ def test_listener(device_event):
         for ws in websockets:
             ws.sendMessage(data)
 
-print "Starting demo server"
-setup_state()
-server = SimpleWebSocketServer('', 8001, DemoSocket)
-plugins = plugins + [wspserial.SerialCommands(), wsptlvs.TLVCommands(), wspnodes.NodeCommands()]
-server.serveforever()
+def usage():
+    print "Usage:",sys.argv[0],"[-c channel] [-P panid]"
+    exit(0)
+
+if __name__ == "__main__":
+    arg = 1
+
+    device_manager = deviceserver.DeviceServer()
+    try:
+        if not device_manager.setup():
+            print "No border router found. Please make sure a border router is running!"
+            exit(1)
+    except socket.timeout:
+        print "No border router found. Please make sure a border router is running!"
+        exit(1)
+    except Exception as e:
+        print e
+        print "Failed to connect to border router."
+        exit(1)
+    while len(sys.argv) > arg + 1:
+        if sys.argv[arg] == "-c":
+            device_manager.radio_channel = tlvlib.decodevalue(sys.argv[arg + 1])
+        elif sys.argv[arg] == "-P":
+            device_manager.radio_panid = tlvlib.decodevalue(sys.argv[arg + 1])
+        else:
+            break
+        arg += 2
+
+    if len(sys.argv) > arg:
+        if sys.argv[arg] == "-h":
+            usage()
+    device_manager.set_channel_panid()
+    print "Starting demo server"
+    setup_state()
+    server = SimpleWebSocketServer('', 8001, DemoSocket)
+    plugins = plugins + [wspserial.SerialCommands(), wsptlvs.TLVCommands(), wspnodes.NodeCommands()]
+    server.serveforever()

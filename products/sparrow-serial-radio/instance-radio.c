@@ -54,8 +54,16 @@ uint32_t serial_radio_stats[SERIAL_RADIO_STATS_MAX];
 uint32_t serial_radio_stats_debug[SERIAL_RADIO_STATS_DEBUG_MAX];
 static uint16_t reset_info = 0;
 
+#ifdef WITH_868
+#define HIGHEST_RADIO_CHANNEL 33
+#define LOWEST_CHANNEL 0
+#elif defined(WITH_920)
+#define HIGHEST_RADIO_CHANNEL 37
+#define LOWEST_CHANNEL 0
+#else
 #define HIGHEST_RADIO_CHANNEL 26
 #define LOWEST_CHANNEL 11
+#endif
 
 /*----------------------------------------------------------------*/
 uint32_t

@@ -1,0 +1,3 @@
+instance-temperature_src = instance-temperature.c
+
+SPARROW_OAM_INSTANCES += instance_temperature

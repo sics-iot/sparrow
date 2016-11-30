@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Yanzi Networks AB.
+ * Copyright (c) 2013-2016, Yanzi Networks AB.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,50 +27,46 @@
  * SUCH DAMAGE.
  */
 
-#ifndef PROJECT_CONF_H_
-#define PROJECT_CONF_H_
+/**
+ * \file
+ *         STTS751 Temperature sensor chip driver
+ * \author
+ *         Fredrik Ljungberg <flag@yanzinetworks.com>
+ */
 
-#define PRODUCT_TYPE_INT64 0x70B3D57D53000001ULL
-#define PRODUCT_LABEL "Zoul RE-Mote"
+#ifndef STTS751_H_
+#define STTS751_H_
 
-#define IPSO_TEMPERATURE platform_ipso_temperature
+#include <stdint.h>
 
-#define INSTANCE_TEMPERATURE_ARCH_READVAL temperature_millikelvin
-#define INSTANCE_TEMPERATURE_ARCH_ERRORVAL temperature_errorval
+/*
+ * Registers
+ */
+#define STTS751_TEMPERATURE_VALUE_HIGH_BYTE      0x00
+#define STTS751_STATUS_REG                       0x01
+#define STTS751_TEMPERATURE_VALUE_LOW_BYTE       0x02
+#define STTS751_CONFIGURATION                    0x03
+#define STTS751_CONVERSION_RATE                  0x04
+#define STTS751_TEMPERATURE_HIGH_LIMIT_HIGH_BYTE 0x05
+#define STTS751_TEMPERATURE_HIGH_LIMIT_LOW_BYTE  0x06
+#define STTS751_TEMPERATURE_LOW_LIMIT_HIGH_BYTE  0x07
+#define STTS751_TEMPERATURE_LOW_LIMIT_LOW_BYTE   0x08
+#define STTS751_ONE_SHOT                         0x0f
+#define STTS751_THERM_LIMIT                      0x20
+#define STTS751_THERM_HYSTERESIS                 0x21
+#define STTS751_SMBUS_TIMEOUT_ENABLE             0x22
+#define STTS751_PRODUCT_ID_REGISTER              0xfd
+#define STTS751_MANUFACTURER_ID                  0xfe
+#define STTS751_REVISION_NUMBER                  0xff
 
-#define RESOURCE_LED0_CONF_LED   LEDS_RED
-#define RESOURCE_LED1_CONF_LED   LEDS_GREEN
-#define RESOURCE_LED2_CONF_LED   LEDS_BLUE
+#define STTS751_STATUS_REG_BUSY                  0x80
 
-#define LEDS_CONTROL_CONF_NUMBER	3
+#define STTS751_STATUS_OK      0
+#define STTS751_STATUS_TIMEOUT 1
+#define STTS751_STATUS_EINVAL  2
+#define STTS751_MILLIKELVIN_ERRORVAL 0xffffffff
 
-/* Network statistics */
-#define RPL_CONF_STATS 1
-/* #define HANDLER_802154_CONF_STATS 1 */
+uint32_t stts751_millikelvin(void);
+uint32_t stts751_errorval(void);
 
-/* #define RPL_CALLBACK_PARENT_SWITCH \ */
-/*   instance_nstats_preferred_parent_callback */
-
-/* CoAP */
-#undef REST_MAX_CHUNK_SIZE
-#define REST_MAX_CHUNK_SIZE 256
-
-#define WEBSERVER_CONF_CFS_PATHLEN 24
-
-#if LLSEC_CONF_LEVEL
-#undef LLSEC802154_CONF_ENABLED
-#define LLSEC802154_CONF_ENABLED          1
-#undef NETSTACK_CONF_FRAMER
-#define NETSTACK_CONF_FRAMER              noncoresec_framer
-#undef NETSTACK_CONF_LLSEC
-#define NETSTACK_CONF_LLSEC               noncoresec_driver
-#undef NONCORESEC_CONF_SEC_LVL
-#define NONCORESEC_CONF_SEC_LVL           LLSEC_CONF_LEVEL
-
-#define NONCORESEC_CONF_KEY { 0x00 , 0x01 , 0x02 , 0x03 , \
-                              0x04 , 0x05 , 0x06 , 0x07 , \
-                              0x08 , 0x09 , 0x0A , 0x0B , \
-                              0x0C , 0x0D , 0x0E , 0x0F }
-#endif /* LLSEC_CONF_LEVEL */
-
-#endif /* PROJECT_CONF_H_ */
+#endif /* STTS751_H_ */

@@ -42,7 +42,7 @@ CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
 CONTIKI_CPU=$(CONTIKI)/cpu/native
 include $(CONTIKI)/cpu/native/Makefile.native
 
-MODULES += core/net core/net/mac core/net/llsec core/net/ip64-addr
+MODULES += core/net core/net/mac core/net/llsec core/net/llsec/noncoresec core/net/ip64-addr
 
 # Software based implementation of CRC32
 EXTERNAL_MODULES += $(SPARROW)/lib/crc32-flash

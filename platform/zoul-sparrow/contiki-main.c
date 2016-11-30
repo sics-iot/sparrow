@@ -57,6 +57,7 @@
 #include "dev/sparrow-device.h"
 #include "dev/slip.h"
 #include "dev/cc2538-rf.h"
+#include "cc1200-conf.h"
 #include "dev/udma.h"
 #include "dev/crypto.h"
 #include "usb/usb-serial.h"
@@ -116,6 +117,9 @@ dual_mode_get_op_mode(void)
 /*---------------------------------------------------------------------------*/
 #endif /* PLATFORM_WITH_DUAL_MODE */
 /*---------------------------------------------------------------------------*/
+
+char *sparrow_radio_name = NULL;
+
 /** \brief Board specific iniatialisation */
 void board_init(void);
 /*---------------------------------------------------------------------------*/
@@ -165,7 +169,10 @@ set_rf_params(void)
 
   NETSTACK_RADIO.set_value(RADIO_PARAM_PAN_ID, IEEE802154_PANID);
   NETSTACK_RADIO.set_value(RADIO_PARAM_16BIT_ADDR, short_addr);
-  NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, CC2538_RF_CHANNEL);
+  if(&NETSTACK_RADIO == &cc2538_rf_driver)
+    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, CC2538_RF_CHANNEL);
+  else
+    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, CC1200_DEFAULT_CHANNEL);
   NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
 }
 /*---------------------------------------------------------------------------*/
@@ -274,10 +281,11 @@ main(void)
   PRINTF("%s\n", NETSTACK_MAC.name);
   PRINTF(" RDC: ");
   PRINTF("%s\n", NETSTACK_RDC.name);
+  sparrow_radio_name =  &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200";
   PRINTF(" PHY: %s\n",
          &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200");
   PRINTF(" PAN-ID: 0x%04x\n", IEEE802154_PANID);
-  PRINTF(" RF Channel: %u\n", CC2538_RF_CONF_CHANNEL);
+  PRINTF(" RF Channel: %u\n", &NETSTACK_RADIO == &cc2538_rf_driver ? CC2538_RF_CHANNEL : CC1200_DEFAULT_CHANNEL);
   PRINTF(" Compiled @ %s %s\n", __DATE__, __TIME__);
 
 #if NETSTACK_CONF_WITH_IPV6

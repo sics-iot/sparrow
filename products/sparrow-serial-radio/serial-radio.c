@@ -62,6 +62,8 @@
 #error "No SERIAL_RADIO_CONTROL_API_VERSION specified. Please set in project-conf.h!"
 #endif
 
+extern char *sparrow_radio_name;
+
 #ifdef CONTIKI_BOARD_IOT_U42
 extern const struct radio_driver cc2538_rf_driver;
 extern const struct radio_driver cc1200_driver;
@@ -842,6 +844,13 @@ serial_radio_cmd_handler(const uint8_t *data, int len)
                uart1_framerr, uart1_parerr, uart1_overrunerr, uart1_timeout);
       }
 #endif /* HAVE_SERIAL_RADIO_UART */
+
+      if(sparrow_radio_name != NULL) {
+        printf("PHY: %s\n", sparrow_radio_name);
+      } else {
+        printf("PHY: unknown\n");
+      }
+
 #ifdef CONTIKI_BOARD_IOT_U42
       {
         const char *name;

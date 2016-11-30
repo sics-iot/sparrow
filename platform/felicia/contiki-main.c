@@ -147,6 +147,9 @@ dual_mode_get_op_mode(void)
 }
 /*---------------------------------------------------------------------------*/
 #endif /* PLATFORM_WITH_DUAL_MODE */
+
+char *sparrow_radio_name = NULL;
+
 /*---------------------------------------------------------------------------*/
 /** \brief Board specific iniatialisation */
 void board_init(void);

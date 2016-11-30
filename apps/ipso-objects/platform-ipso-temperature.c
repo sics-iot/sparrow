@@ -29,20 +29,24 @@
 
 /**
  * \file
- *         stts751 IPSO temperature driver
+ *         Platform IPSO temperature driver
  * \author
  *         Joakim Eriksson <joakime@sics.se>
  *         Niclas Finne <nfi@sics.se>
  */
 
 #include "ipso-objects.h"
-#include "stts751.h"
 
 /*---------------------------------------------------------------------------*/
 static int
 read_value(int32_t *value)
 {
-  int32_t mk = stts751_millikelvin();
+#if PLATFORM_HAS_SENSORS && defined(PLATFORM_GET_TEMPERATURE)
+  int32_t mk = PLATFORM_GET_TEMPERATURE();
+#else
+  int32_t mk = 0;
+#endif
+
   if(mk > 0) {
     *value = (mk - 273150);
   } else {
@@ -52,7 +56,7 @@ read_value(int32_t *value)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-const struct ipso_objects_sensor stts751_ipso_temperature = {
+const struct ipso_objects_sensor platform_ipso_temperature = {
   .read_value = read_value
 };
 /*---------------------------------------------------------------------------*/

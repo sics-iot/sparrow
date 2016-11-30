@@ -342,12 +342,33 @@ typedef uint32_t rtimer_clock_t;
 #endif
 
 #ifndef NETSTACK_CONF_RDC
-#define NETSTACK_CONF_RDC     nullrdc_driver
+#define NETSTACK_CONF_RDC           nullrdc_driver
 #endif
 
-/* Configure NullRDC for when it's selected */
-#define NULLRDC_802154_AUTOACK                  0
 #define NULLRDC_802154_AUTOACK_HW               1
+
+#if WITH_868 || WITH_920
+#undef NETSTACK_CONF_RADIO
+#define NULLRDC_802154_AUTOACK                  1
+#define NULLRDC_CONF_ACK_WAIT_TIME  (RTIMER_SECOND / 100)
+/* Enable blocking frame retries on nullrdc */
+#define NULLRDC_CONF_ENABLE_RETRANSMISSIONS     1
+#define NULLRDC_CONF_MAX_RETRANSMISSIONS        3
+#define NULLRDC_CONF_ENABLE_RETRANSMISSIONS_BCAST 1
+
+#define NETSTACK_CONF_RADIO         cc1200_driver
+#define CC1200_CONF_USE_GPIO2       0
+#define CC1200_CONF_USE_RX_WATCHDOG 0
+#define ANTENNA_SW_SELECT_DEF_CONF  ANTENNA_SW_SELECT_SUBGHZ
+#else
+/* Configure NullRDC for when it's selected - cc2538-rf has autoretrans... */
+#define NULLRDC_802154_AUTOACK                  0
+#endif /* WITH_868 || WITH_920 */
+
+#if WITH_920
+#define CC1200_CONF_RF_CFG          cc1200_802154g_920_928_fsk_50kbps
+#define CC1200_CONF_DEFAULT_CHANNEL 0
+#endif
 
 /* Configure ContikiMAC for when it's selected */
 #define CONTIKIMAC_CONF_WITH_PHASE_OPTIMIZATION 0
