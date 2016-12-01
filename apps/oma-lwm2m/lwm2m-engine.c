@@ -656,8 +656,8 @@ lwm2m_engine_init(void)
 
   len = strlen(LWM2M_ENGINE_CLIENT_ENDPOINT_PREFIX);
   /* ensure that this fits with the hex-nums */
-  if(len > sizeof(client) - 13) {
-    len = sizeof(client) - 13;
+  if(len > sizeof(client) - 19) {
+    len = sizeof(client) - 19;
   }
   memcpy(client, LWM2M_ENGINE_CLIENT_ENDPOINT_PREFIX, len);
 
@@ -672,6 +672,7 @@ lwm2m_engine_init(void)
     }
   }
 
+  client[len++] = '-';
   if(ipaddr != NULL) {
     for(i = 0; i < 6; i++) {
       /* assume IPv6 for now */
