@@ -69,27 +69,11 @@ static void enc_net_input(void);
 extern uint8_t verbose_output;
 extern uint32_t border_router_api_version;
 
-static uint32_t last_received_seqno;
-static uint32_t last_sent_seqno;
-static uint32_t next_seqno;
-
-static uint32_t last_packet_seqno = 0;
-static uint16_t last_packet_len = 0;
-static uint8_t last_packet_data[1];
-static uint8_t is_using_ack = 0;
-static uint8_t is_using_nack = 0;
-static uint8_t has_received_seqno = 0;
-
 static struct timer send_timer;
 static int debug_frame = 0;
 
 static uint16_t slip_fragment_delay = 1000;
 static uint16_t slip_fragment_size = 62;
-
-#define TIMED_RESEND 1
-#if TIMED_RESEND
-static struct ctimer resend_timer;
-#endif
 /*---------------------------------------------------------------------------*/
 #define WRITE_STATUS_OK 1
 
@@ -190,24 +174,12 @@ putchar(int c)
 uint32_t
 serial_get_mode(void)
 {
-  uint32_t v = 0;
-  if(is_using_ack) {
-    v |= SERIAL_MODE_ACK;
-  }
-  if(is_using_nack) {
-    v |= SERIAL_MODE_NACK;
-  }
-  return v;
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 void
 serial_set_mode(uint32_t mode)
 {
-  if(mode == SERIAL_MODE_ACK) {
-    is_using_ack = 1;
-  } else {
-    is_using_ack = 0;
-  }
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -249,36 +221,9 @@ send_to_slip(const uint8_t *buf, int len)
   return WRITE_STATUS_OK;
 }
 /*---------------------------------------------------------------------------*/
-#if TIMED_RESEND
-static void
-resend_callback(void *ignore)
-{
-  if(last_packet_len > 0) {
-    slip_frame_start();
-    send_to_slip(last_packet_data, last_packet_len);
-    slip_frame_end();
-
-    /* At most one retransmission */
-    last_packet_len = 0;
-  }
-}
-#endif /* TIMED_RESEND */
-/*---------------------------------------------------------------------------*/
-static void
-send_report(void)
-{
-  uint8_t buf[4];
-  buf[0] = (last_received_seqno >> 24) & 0xff;
-  buf[1] = (last_received_seqno >> 16) & 0xff;
-  buf[2] = (last_received_seqno >> 8) & 0xff;
-  buf[3] = last_received_seqno & 0xff;
-  enc_net_send_packet_payload_type(buf, 4, SPARROW_ENCAP_PAYLOAD_RECEIVE_REPORT);
-}
-/*---------------------------------------------------------------------------*/
 static void
 enc_net_input(void)
 {
-  uint32_t seqno;
   int payload_len, enclen;
   sparrow_encap_pdu_info_t pinfo;
   uint8_t *payload;
@@ -298,9 +243,6 @@ enc_net_input(void)
       printf("Packet input failed Bad CRC, len:%d, enclen:%d\n", payload_len, enclen);
     }
     SERIAL_RADIO_STATS_INC(SERIAL_RADIO_STATS_ENCAP_ERRORS);
-    if(has_received_seqno && is_using_nack) {
-      send_report();
-    }
     return;
   }
 
@@ -309,9 +251,6 @@ enc_net_input(void)
       printf("Packet input failed: %d (len:%d)\n", enclen, payload_len);
     }
     SERIAL_RADIO_STATS_INC(SERIAL_RADIO_STATS_ENCAP_ERRORS);
-    if(has_received_seqno && is_using_nack) {
-      send_report();
-    }
     return;
   }
 
@@ -320,9 +259,6 @@ enc_net_input(void)
       printf("Packet input failed: illegal fpmode %d (len:%d)\n", pinfo.fpmode, payload_len);
     }
     SERIAL_RADIO_STATS_INC(SERIAL_RADIO_STATS_ENCAP_ERRORS);
-    if(has_received_seqno && is_using_nack) {
-      send_report();
-    }
     return;
   }
 
@@ -333,80 +269,18 @@ enc_net_input(void)
       printf("Packet input failed: no CRC in fingerprint (len:%d)\n", payload_len);
     }
     SERIAL_RADIO_STATS_INC(SERIAL_RADIO_STATS_ENCAP_ERRORS);
-    if(has_received_seqno && is_using_nack) {
-      send_report();
-    }
     return;
   }
 
   if(pinfo.fpmode == SPARROW_ENCAP_FP_MODE_LENOPT
      && pinfo.fplen == 4 && pinfo.fp
      && pinfo.fp[1] == SPARROW_ENCAP_FP_LENOPT_OPTION_SEQNO_CRC) {
-    /* Packet includes sequence number */
-    seqno = payload[enclen + 0] << 24;
-    seqno |= payload[enclen + 1] << 16;
-    seqno |= payload[enclen + 2] << 8;
-    seqno |= payload[enclen + 3];
+    /* Ignore the packet sequence number */
     enclen += 4;
-
-    if(has_received_seqno) {
-
-      if(seqno == last_received_seqno) {
-        /* This packet has already been received */
-        if(verbose_output) {
-          printf("*** Sdup %lu\n", seqno);
-        }
-        send_report();
-        return;
-      }
-
-      if(last_received_seqno - seqno < 50) {
-        /* Received an older packet - drop it quietly */
-        if(verbose_output) {
-          printf("*** Sdrop %lu (%lu)\n", seqno, last_received_seqno);
-        }
-        return;
-      }
-    } else {
-      has_received_seqno = 1;
-    }
-
-    last_received_seqno = seqno;
-    send_report();
   }
 
   if(pinfo.payload_type == SPARROW_ENCAP_PAYLOAD_RECEIVE_REPORT) {
-    seqno = payload[enclen + 0] << 24;
-    seqno |= payload[enclen + 1] << 16;
-    seqno |= payload[enclen + 2] << 8;
-    seqno |= payload[enclen + 3];
-
-    if(verbose_output) {
-      /* printf("report: %lu (%lu)\n", seqno, last_sent_seqno); */
-    }
-
-    if(last_packet_len > 0) {
-      if(seqno == last_packet_seqno) {
-        /* Packet has been received */
-
-      } else if(seqno + 1 == last_packet_seqno) {
-        /* Only one packet buffer */
-        if(verbose_output) {
-          printf("*** R %lu < %lu (%lu)\n", seqno, last_packet_seqno, last_sent_seqno);
-        }
-
-        /* Retransmit last packet */
-        if(slip_frame_start() == WRITE_STATUS_OK) {
-          send_to_slip(last_packet_data, last_packet_len);
-          slip_frame_end();
-        }
-      }
-
-      /* At most one retransmission */
-      last_packet_len = 0;
-    }
-
-    /* no need to send receive reports further */
+    /* Ignore any reports */
     return;
   }
 
@@ -419,7 +293,7 @@ enc_net_send_packet(const uint8_t *ptr, int len)
 {
   enc_net_send_packet_payload_type(ptr, len, SPARROW_ENCAP_PAYLOAD_SERIAL);
 }
-
+/*---------------------------------------------------------------------------*/
 void
 enc_net_send_packet_payload_type(const uint8_t *ptr, int len, uint8_t payload_type)
 {
@@ -427,27 +301,12 @@ enc_net_send_packet_payload_type(const uint8_t *ptr, int len, uint8_t payload_ty
   uint8_t finger[4];
   uint32_t crc_value;
   size_t enc_res;
-  int use_seqno = 0;
   sparrow_encap_pdu_info_t pinfo;
 
   finger[0] = 0;
   finger[1] = SPARROW_ENCAP_FP_LENOPT_OPTION_CRC;
   finger[2] = (len >> 8);
   finger[3] = len & 0xff;
-
-  if(is_using_ack) {
-
-    /* Only use sequence number for serial or TLV data */
-    if(payload_type == SPARROW_ENCAP_PAYLOAD_SERIAL || payload_type == SPARROW_ENCAP_PAYLOAD_TLV) {
-
-      /* Only use sequence number if the packet is expected to be small enough to
-         be stored for retransmission. */
-      if(len + 4 + 4 + 4 < sizeof(last_packet_data)) {
-        use_seqno = 1;
-        finger[1] = SPARROW_ENCAP_FP_LENOPT_OPTION_SEQNO_CRC;
-      }
-    }
-  }
 
   pinfo.version = SPARROW_ENCAP_VERSION1;
   pinfo.fp = finger;
@@ -466,20 +325,10 @@ enc_net_send_packet_payload_type(const uint8_t *ptr, int len, uint8_t payload_ty
     return;
   }
 
-  if(len + enc_res + 4 + (use_seqno ? 4 : 0) > sizeof(buffer)) {
+  if(len + enc_res + 4 > sizeof(buffer)) {
     /* Too large packet */
     printf("Too large packet to send - hdr %u, len %u\n", enc_res, len);
     return;
-  }
-
-  if(use_seqno) {
-    last_sent_seqno = next_seqno++;
-    buffer[enc_res + 0] = (last_sent_seqno >> 24) & 0xff;
-    buffer[enc_res + 1] = (last_sent_seqno >> 16) & 0xff;
-    buffer[enc_res + 2] = (last_sent_seqno >>  8) & 0xff;
-    buffer[enc_res + 3] = last_sent_seqno & 0xff;
-
-    enc_res += 4;
   }
 
   /* copy the data into the buffer */
@@ -495,17 +344,6 @@ enc_net_send_packet_payload_type(const uint8_t *ptr, int len, uint8_t payload_ty
   buffer[len++] = (crc_value >> 8L) & 0xff;
   buffer[len++] = (crc_value >> 16L) & 0xff;
   buffer[len++] = (crc_value >> 24L) & 0xff;
-
-  if(use_seqno && len <= sizeof(last_packet_data)) {
-    /* Buffer the last packet for retransmissions */
-    memcpy(last_packet_data, buffer, len);
-    last_packet_len = len;
-    last_packet_seqno = last_sent_seqno;
-
-#if TIMED_RESEND
-    ctimer_set(&resend_timer, CLOCK_SECOND / 16, resend_callback, NULL);
-#endif
-  }
 
   /* out with the whole message */
   if(slip_frame_start() == WRITE_STATUS_OK) {
