@@ -129,12 +129,6 @@ static uint8_t is_using_ack = 0;
 static uint8_t is_using_nack = 0;
 static uint8_t has_received_seqno = 0;
 
-#define WITH_FLOW_CONTROL 0
-#if WITH_FLOW_CONTROL
-static uint16_t max_packets_to_send = 0;
-static int use_packet_flow_control = 0;
-#endif /* WITH_FLOW_CONTROL */
-
 /* for statistics */
 unsigned long slip_sent = 0;
 unsigned long slip_sent_to_fd = 0;
@@ -661,12 +655,6 @@ serial_input(void)
                 }
               }
             }
-
-#if WITH_FLOW_CONTROL
-          } else if(pinfo.payload_type == SPARROW_ENCAP_PAYLOAD_START_TRANSMITTER) {
-            max_packets_to_send = (inbuf[enclen + 2] << 8) + inbuf[enclen + 3];
-            use_packet_flow_control = 1;
-#endif /* WITH_FLOW_CONTROL */
           } else {
             BRM_STATS_INC(BRM_STATS_ENCAP_UNPROCESSED);
           }
@@ -772,21 +760,6 @@ slip_flushbuf(int fd)
         return;
       }
     }
-
-#if WITH_FLOW_CONTROL
-    if(use_packet_flow_control) {
-      static int overflow = 0;
-      if(max_packets_to_send == 0) {
-        overflow++;
-        if(overflow < 1000) {
-          LOG_LIMIT_ERROR("*** flow control overflow\n");
-        }
-        return;
-      }
-      overflow = 0;
-      max_packets_to_send--;
-    }
-#endif /* WITH_FLOW_CONTROL */
 
     active_packet = list_pop(pending_packets);
     if(active_packet == NULL) {

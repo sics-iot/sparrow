@@ -69,12 +69,6 @@ static void enc_net_input(void);
 extern uint8_t verbose_output;
 extern uint32_t border_router_api_version;
 
-#define WITH_FLOW_CONTROL 0
-#if WITH_FLOW_CONTROL
-static uint8_t start_transmitt_data[4] = { 0, 0, 0, 1 };
-static struct timer start_transmitt_timer;
-#endif /* WITH_FLOW_CONTROL */
-
 static uint32_t last_received_seqno;
 static uint32_t last_sent_seqno;
 static uint32_t next_seqno;
@@ -295,14 +289,6 @@ enc_net_input(void)
   uip_ext_len = 0;
 
   SERIAL_RADIO_STATS_ADD(SERIAL_RADIO_STATS_ENCAP_RECV, payload_len);
-
-#if WITH_FLOW_CONTROL
-  /* Signal that we can receive another packet */
-  enc_net_send_packet_payload_type(start_transmitt_data,
-                                sizeof(start_transmitt_data),
-                                SPARROW_ENCAP_PAYLOAD_START_TRANSMITTER);
-  timer_set(&start_transmitt_timer, CLOCK_SECOND / 16);
-#endif /* WITH_FLOW_CONTROL */
 
   /* decode packet data - encap header + crc32 check */
   enclen = sparrow_encap_parse_and_verify(payload, payload_len, &pinfo);
