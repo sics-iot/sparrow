@@ -207,10 +207,7 @@ tun_init(void)
   setvbuf(stdout, NULL, _IOLBF, 0); /* Line buffered output. */
 }
 
-#else
-
-static uint16_t delaymsec = 0;
-static uint32_t delaystartsec, delaystartmsec;
+#else /* __CYGWIN__ */
 
 /*---------------------------------------------------------------------------*/
 void
@@ -299,23 +296,7 @@ set_fd(fd_set *rset, fd_set *wset)
 static void
 handle_fd(fd_set *rset, fd_set *wset)
 {
-  /* Optional delay between outgoing packets */
-  /* Base delay times number of 6lowpan fragments to be sent */
-  /* delaymsec = 10; */
-  if(delaymsec) {
-    struct timeval tv;
-    int dmsec;
-    gettimeofday(&tv, NULL);
-    dmsec = (tv.tv_sec - delaystartsec) * 1000 + tv.tv_usec / 1000 - delaystartmsec;
-    if(dmsec < 0) {
-      delaymsec = 0;
-    }
-    if(dmsec > delaymsec) {
-      delaymsec=0;
-    }
-  }
-
-  if(delaymsec == 0 && is_open) {
+  if(is_open) {
     int size;
 
     if(FD_ISSET(tunfd, rset)) {
@@ -329,16 +310,8 @@ handle_fd(fd_set *rset, fd_set *wset)
 
       PRINTF("TUN data incoming read:%d PROCESS\n", size);
       tcpip_input();
-
-      if(br_config_basedelay) {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        delaymsec = br_config_basedelay;
-        delaystartsec = tv.tv_sec;
-        delaystartmsec = tv.tv_usec / 1000;
-      }
     }
   }
 }
-#endif /*  __CYGWIN_ */
+#endif /*  __CYGWIN__ */
 /*---------------------------------------------------------------------------*/

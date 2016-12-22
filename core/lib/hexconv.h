@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, Swedish Institute of Computer Science.
+ * Copyright (c) 2016, SICS, Swedish ICT AB.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,25 +27,22 @@
  * SUCH DAMAGE.
  */
 
-#ifndef BR_CONFIG_H_
-#define BR_CONFIG_H_
+/**
+ * \file
+ *         A small util to convert between bytes and hex string
+ * \author
+ *         Niclas Finne <nfi@sics.se>
+ */
+
+#ifndef HEXCONV_H_
+#define HEXCONV_H_
 
 #include <stdint.h>
 
-extern uint8_t br_config_wait_for_address;
-extern uint8_t br_config_verbose_output;
-extern const char *br_config_ipaddr;
-extern int br_config_flowcontrol;
-extern const char *br_config_siodev;
-extern const char *br_config_host;
-extern const char *br_config_port;
-extern const char *br_config_run_command;
-extern const char *br_config_beacon;
-extern const char *ctrl_config_port;
-extern const char *server_config_port;
-extern char br_config_tundev[];
-extern uint16_t br_config_siodev_delay;
-extern uint16_t br_config_unit_controller_port;
-extern uint8_t br_config_is_slave;
+int hexconv_hexlify(const uint8_t *data, int data_len,
+		    char *text, int text_size);
 
-#endif /* BR_CONFIG_H_ */
+int hexconv_unhexlify(const char *text, int text_len,
+		      uint8_t *buf, int buf_size);
+
+#endif /* HEXCONV_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, Swedish Institute of Computer Science.
+ * Copyright (c) 2016, SICS, Swedish ICT AB.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,25 +27,62 @@
  * SUCH DAMAGE.
  */
 
-#ifndef BR_CONFIG_H_
-#define BR_CONFIG_H_
+/**
+ * \file
+ *         A small util to convert between bytes and hex string
+ * \author
+ *         Niclas Finne <nfi@sics.se>
+ */
 
-#include <stdint.h>
+#include "lib/hexconv.h"
+#include "sys/cc.h"
+/*---------------------------------------------------------------------------*/
+static CC_INLINE int
+fromhex(char c)
+{
+  if(c >= '0' && c <= '9') {
+    return c - '0';
+  }
+  if(c >= 'a' && c <= 'f') {
+    return c - 'a' + 10;
+  }
+  if(c >= 'A' && c <= 'F') {
+    return c - 'A' + 10;
+  }
+  return -1;
+}
+/*---------------------------------------------------------------------------*/
+int
+hexconv_hexlify(const uint8_t *data, int data_len, char *text, int text_size)
+{
+  static const char *HEX = "01234567890abcdef";
+  int i, p;
 
-extern uint8_t br_config_wait_for_address;
-extern uint8_t br_config_verbose_output;
-extern const char *br_config_ipaddr;
-extern int br_config_flowcontrol;
-extern const char *br_config_siodev;
-extern const char *br_config_host;
-extern const char *br_config_port;
-extern const char *br_config_run_command;
-extern const char *br_config_beacon;
-extern const char *ctrl_config_port;
-extern const char *server_config_port;
-extern char br_config_tundev[];
-extern uint16_t br_config_siodev_delay;
-extern uint16_t br_config_unit_controller_port;
-extern uint8_t br_config_is_slave;
+  for(i = 0, p = 0; p + 1 < text_size && i < data_len; i++) {
+    text[p++] = HEX[(data[i] >> 4) & 0xf];
+    text[p++] = HEX[data[i] & 0xf];
+  }
+  return p;
+}
+/*---------------------------------------------------------------------------*/
+int
+hexconv_unhexlify(const char *text, int text_len, uint8_t *buf, int buf_size)
+{
+  int i, p, c1, c2;
 
-#endif /* BR_CONFIG_H_ */
+  if((text_len & 1) != 0) {
+    /* The string must be of an even length */
+    return -1;
+  }
+
+  for(i = 0, p = 0; p < buf_size && i + 1 < text_len; i += 2, p++) {
+    c1 = fromhex(text[i]);
+    c2 = fromhex(text[i + 1]);
+    if(c1 < 0 || c2 < 0) {
+      return -1;
+    }
+    buf[p] = ((c1 << 4) & 0xf0) + (c2 & 0xf);
+  }
+  return p;
+}
+/*---------------------------------------------------------------------------*/
