@@ -30,9 +30,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if PLATFORM_HAS_SENSORS
 #include "contiki-conf.h"
-#endif
 
 /*---------------------------------------------------------------------------*/
 uint16_t
