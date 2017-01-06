@@ -94,7 +94,7 @@ uint8_t br_config_is_slave = 0;
 #endif
 speed_t br_config_b_rate = BAUDRATE;
 
-#define GET_OPT_OPTIONS "_?hB:H:D:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
+#define GET_OPT_OPTIONS "_?hB:HD:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
 /*---------------------------------------------------------------------------*/
 int
 br_config_handle_arguments(int argc, char **argv)
