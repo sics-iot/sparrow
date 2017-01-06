@@ -48,7 +48,6 @@
 #include "contiki.h"
 #include "br-config.h"
 
-#ifdef __APPLE__
 #ifndef B230400
 #define B230400 230400
 #endif
@@ -58,7 +57,6 @@
 #ifndef B921600
 #define B921600 921600
 #endif
-#endif /* __APPLE__ */
 
 #ifdef ENC_DEV_CONF_SEND_DELAY
 #define SEND_DELAY_DEFAULT ENC_DEV_CONF_SEND_DELAY
