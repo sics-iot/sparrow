@@ -48,7 +48,6 @@
 #include "contiki.h"
 #include "br-config.h"
 
-#ifdef __APPLE__
 #ifndef B230400
 #define B230400 230400
 #endif
@@ -58,7 +57,6 @@
 #ifndef B921600
 #define B921600 921600
 #endif
-#endif /* __APPLE__ */
 
 #ifdef ENC_DEV_CONF_SEND_DELAY
 #define SEND_DELAY_DEFAULT ENC_DEV_CONF_SEND_DELAY
@@ -94,7 +92,7 @@ uint8_t br_config_is_slave = 0;
 #endif
 speed_t br_config_b_rate = BAUDRATE;
 
-#define GET_OPT_OPTIONS "_?hB:H:D:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
+#define GET_OPT_OPTIONS "_?hB:HD:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
 /*---------------------------------------------------------------------------*/
 int
 br_config_handle_arguments(int argc, char **argv)
