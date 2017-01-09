@@ -108,6 +108,8 @@ void radio_802154_release_writebuf(const struct radio_802154_driver *radio, uint
 radio_802154_rf_buffer_t *radio_802154_get_readbuf(const struct radio_802154_driver *radio);
 void radio_802154_release_readbuf(const struct radio_802154_driver *radio);
 
+void radio_802154_clear(const struct radio_802154_driver *radio);
+
 /* Will check if the packet is an ACK and if it has a correct sequence no
  * if not - the packet will be buffered */
 radio_802154_rf_buffer_t *radio_802154_handle_ack(const struct radio_802154_driver *radio, const uint8_t *buf, int len);

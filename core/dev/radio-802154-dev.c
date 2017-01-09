@@ -111,6 +111,13 @@ radio_802154_release_readbuf(const struct radio_802154_driver *radio)
          radio->state->write_buf, radio->state->read_buf);
 }
 /*---------------------------------------------------------------------------*/
+void
+radio_802154_clear(const struct radio_802154_driver *radio)
+{
+  /* Drop any buffers */
+  radio->state->read_buf = radio->state->write_buf;
+}
+/*---------------------------------------------------------------------------*/
 /* called from receive Interrupt */
 radio_802154_rf_buffer_t *
 radio_802154_handle_ack(const struct radio_802154_driver *radio,

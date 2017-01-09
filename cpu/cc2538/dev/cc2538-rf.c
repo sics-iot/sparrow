@@ -56,11 +56,7 @@
 #include "dev/radio-802154-dev.h"
 
 #include <string.h>
-
-#ifndef CC2538_CONF_CC2592
-#define CC2538_CONF_CC2592 0
-#endif
-
+/*---------------------------------------------------------------------------*/
 #if CC2538_CONF_CC2592
 
 #ifndef CC2538_HGM_PORT
@@ -83,7 +79,6 @@
 #define RSSI_OFFSET    73
 
 #endif /* CC2538_CONF_CC2592 */
-
 /*---------------------------------------------------------------------------*/
 #define CHECKSUM_LEN 2
 
@@ -102,9 +97,9 @@
  */
 #define UDMA_RX_SIZE_THRESHOLD 3
 /*---------------------------------------------------------------------------*/
-#include <stdio.h>
 #define DEBUG 0
 #if DEBUG
+#include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
 #else
 #define PRINTF(...)
@@ -122,34 +117,27 @@
 /* 192 usec off -> on interval (RX Callib -> SFD Wait). We wait a bit more */
 #define ONOFF_TIME                    RTIMER_ARCH_SECOND / 3125
 /*---------------------------------------------------------------------------*/
-/* Sniffer configuration */
-#ifndef CC2538_RF_CONF_SNIFFER_USB
-#define CC2538_RF_CONF_SNIFFER_USB 0
-#endif
-
-#if CC2538_RF_CONF_SNIFFER
-static const uint8_t magic[] = { 0x53, 0x6E, 0x69, 0x66 };      /** Snif */
-
-#if CC2538_RF_CONF_SNIFFER_USB
-#include "usb/usb-serial.h"
-#define write_byte(b) usb_serial_writeb(b)
-#define flush()       usb_serial_flush()
-#else
-#include "dev/uart.h"
-#define write_byte(b) uart_write_byte(CC2538_RF_CONF_SNIFFER_UART, b)
-#define flush()
-#endif
-
-#else /* CC2538_RF_CONF_SNIFFER */
-#define write_byte(b)
-#define flush()
-#endif /* CC2538_RF_CONF_SNIFFER */
-/*---------------------------------------------------------------------------*/
 #ifdef CC2538_RF_CONF_AUTOACK
 #define CC2538_RF_AUTOACK CC2538_RF_CONF_AUTOACK
 #else
 #define CC2538_RF_AUTOACK 1
 #endif
+/*---------------------------------------------------------------------------
+ * MAC timer
+ *---------------------------------------------------------------------------*/
+/* Timer conversion */
+#define RADIO_TO_RTIMER(X) ((uint32_t)((uint64_t)(X) * RTIMER_ARCH_SECOND / SYS_CTRL_32MHZ))
+
+#define CLOCK_STABLE() do {															\
+			while ( !(REG(SYS_CTRL_CLOCK_STA) & (SYS_CTRL_CLOCK_STA_XOSC_STB)));	\
+		} while(0)
+/*---------------------------------------------------------------------------*/
+/* Are we currently in poll mode? Disabled by default */
+static volatile uint8_t poll_mode = 0;
+/* Do we perform a CCA before sending? Enabled by default. */
+static uint8_t send_on_cca = 1;
+static int8_t last_rssi;
+static uint8_t last_crc_corr;
 /*---------------------------------------------------------------------------*/
 static uint8_t rf_flags;
 static uint8_t rf_channel = CC2538_RF_CHANNEL;
@@ -157,7 +145,6 @@ static uint8_t rf_channel = CC2538_RF_CHANNEL;
 static int on(void);
 static int off(void);
 static int transmit_packet(unsigned short transmit_len);
-
 /*---------------------------------------------------------------------------*/
 
 RADIO_802154_DRIVER(radio_dev, cc2538_rf_driver,
@@ -222,9 +209,9 @@ static const output_config_t output_power[] = {
 PROCESS(cc2538_rf_process, "cc2538 RF driver");
 /*---------------------------------------------------------------------------*/
 
-/*---------------------------------------------------------------------------*/
-/* Read a packet from radio to buffers */
-/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------
+ * Read a packet from radio to buffers
+ *---------------------------------------------------------------------------*/
 /* NOTE: this may only be called by the interrupt that writes the packet */
 static int
 write_to_rxbuf(void)
@@ -324,11 +311,13 @@ write_to_rxbuf(void)
     rx_buf->len = len;
   }
 
+  /* Read the RSSI and CRC/Corr bytes */
   rssi = ((int8_t)REG(RFCORE_SFR_RFDATA)) - RSSI_OFFSET;
   crc_corr = REG(RFCORE_SFR_RFDATA);
 
   PRINTF("%02x%02x\n", (uint8_t)rssi, crc_corr);
 
+  /* MS bit CRC OK/Not OK, 7 LS Bits, Correlation value */
   if((crc_corr & CRC_BIT_MASK) == 0) {
     RIMESTATS_ADD(badcrc);
     PRINTF("RF: Bad CRC\n");
@@ -363,25 +352,27 @@ write_to_rxbuf(void)
     len = 0;
   }
 
-  /* If FIFOP==1 and FIFO==0 then we had a FIFO overflow at some point. */
-  if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFOP) {
-    if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFO) {
-      process_poll(&cc2538_rf_process);
-    } else {
-      CC2538_RF_CSP_ISFLUSHRX();
+  if(!poll_mode) {
+    /* If FIFOP==1 and FIFO==0 then we had a FIFO overflow at some point. */
+    if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFOP) {
+      if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFO) {
+        process_poll(&cc2538_rf_process);
+      } else {
+        CC2538_RF_CSP_ISFLUSHRX();
+      }
     }
-  }
 
-  if(!radio_802154_rx_buf_is_empty(&radio_dev)) {
-    /* There is at least one packet to process */
-    process_poll(&cc2538_rf_process);
+    if(!radio_802154_rx_buf_is_empty(&radio_dev)) {
+      /* There is at least one packet to process */
+      process_poll(&cc2538_rf_process);
+    }
   }
 
   return len;
 }
 /*---------------------------------------------------------------------------*/
 static int
-read(void *buffer, unsigned short buffer_size)
+read_from_rxbuf(void *buffer, unsigned short buffer_size)
 {
   int len;
   radio_802154_rf_buffer_t *rx_buf;
@@ -402,28 +393,15 @@ read(void *buffer, unsigned short buffer_size)
   packetbuf_set_attr(PACKETBUF_ATTR_RSSI, rx_buf->rssi);
   packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY,
                      rx_buf->crc_corr & LQI_BIT_MASK);
+  last_rssi = rx_buf->rssi;
+  last_crc_corr = rx_buf->crc_corr;
 #if RADIO_802154_WITH_TIMESTAMP
   packetbuf_set_attr(PACKETBUF_ATTR_TIMESTAMP, rx_buf->timestamp);
-#endif
-#if CC2538_RF_CONF_SNIFFER
-  write_byte(magic[0]);
-  write_byte(magic[1]);
-  write_byte(magic[2]);
-  write_byte(magic[3]);
-  write_byte(len + 2);
-  for(i = 0; i < len; ++i) {
-    write_byte(((uint8_t *)(buffer))[i]);
-  }
-  write_byte(rx_buf->rssi);
-  write_byte(rx_buf->crc_corr);
-  flush();
 #endif
   radio_802154_release_readbuf(&radio_dev);
   return len;
 }
-
 /*---------------------------------------------------------------------------*/
-
 /**
  * \brief Get the current operating channel
  * \return Returns a value in [11,26] representing the current channel
@@ -433,8 +411,8 @@ get_channel()
 {
   uint8_t chan = REG(RFCORE_XREG_FREQCTRL) & RFCORE_XREG_FREQCTRL_FREQ;
 
-  return ((chan - CC2538_RF_CHANNEL_MIN) / CC2538_RF_CHANNEL_SPACING
-          + CC2538_RF_CHANNEL_MIN);
+  return (chan - CC2538_RF_CHANNEL_MIN) / CC2538_RF_CHANNEL_SPACING
+         + CC2538_RF_CHANNEL_MIN;
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -455,14 +433,15 @@ set_channel(uint8_t channel)
   }
 
   /* Changes to FREQCTRL take effect after the next recalibration */
-    
+
   /* If we are off, save state, otherwise switch off and save state */
   if((REG(RFCORE_XREG_FSMSTAT0) & RFCORE_XREG_FSMSTAT0_FSM_FFCTRL_STATE) != 0) {
     was_on = 1;
     off();
   }
-  REG(RFCORE_XREG_FREQCTRL) = (CC2538_RF_CHANNEL_MIN
-      + (channel - CC2538_RF_CHANNEL_MIN) * CC2538_RF_CHANNEL_SPACING);
+  REG(RFCORE_XREG_FREQCTRL) = CC2538_RF_CHANNEL_MIN +
+    (channel - CC2538_RF_CHANNEL_MIN) * CC2538_RF_CHANNEL_SPACING;
+
   /* switch radio back on only if radio was on before - otherwise will turn on radio foor sleepy nodes */
   if(was_on) {
     on();
@@ -470,14 +449,14 @@ set_channel(uint8_t channel)
 
   rf_channel = channel;
 
-  return (int8_t) channel;
+  return (int8_t)channel;
 }
 /*---------------------------------------------------------------------------*/
 /**
  * \brief Get the operating RF central frequency
  */
 static uint8_t
-get_frequency()
+get_frequency(void)
 {
   return (uint8_t)(REG(RFCORE_XREG_FREQCTRL) & RFCORE_XREG_FREQCTRL_FREQ);
 }
@@ -488,16 +467,23 @@ get_frequency()
 static int8_t
 set_frequency(uint8_t frequency)
 {
+  uint8_t was_on = 0;
+
   PRINTF("RF: Set Central Freq\n");
 
   if(frequency > CC2538_RF_FREQ_MAX) {
     return CC2538_RF_CHANNEL_SET_ERROR;
   }
 
-  /* Changes to FREQCTRL take effect after the next recalibration */
-  off();
+  if((REG(RFCORE_XREG_FSMSTAT0) & RFCORE_XREG_FSMSTAT0_FSM_FFCTRL_STATE) != 0) {
+    /* Changes to FREQCTRL take effect after the next recalibration */
+    was_on = 1;
+    off();
+  }
   REG(RFCORE_XREG_FREQCTRL) = frequency;
-  on();
+  if(was_on) {
+    on();
+  }
 
   /* The function returns an offset from the 2394MHz frequency.*/
   return (int8_t)frequency;
@@ -572,7 +558,7 @@ get_cca_threshold(void)
 static void
 set_cca_threshold(radio_value_t value)
 {
-  REG(RFCORE_XREG_CCACTRL0) = (value & 0xFF) + RSSI_OFFSET;
+  REG(RFCORE_XREG_CCACTRL0) = (value + RSSI_OFFSET) & 0xFF;
 }
 /*---------------------------------------------------------------------------*/
 /* Returns the current TX power in dBm */
@@ -628,6 +614,46 @@ set_frame_filtering(uint8_t enable)
 }
 /*---------------------------------------------------------------------------*/
 static void
+mac_timer_init(void)
+{
+  CLOCK_STABLE();
+  REG(RFCORE_SFR_MTCTRL) |= RFCORE_SFR_MTCTRL_SYNC;
+  REG(RFCORE_SFR_MTCTRL) |= RFCORE_SFR_MTCTRL_RUN;
+  while(!(REG(RFCORE_SFR_MTCTRL) & RFCORE_SFR_MTCTRL_STATE));
+  REG(RFCORE_SFR_MTCTRL) &= ~RFCORE_SFR_MTCTRL_RUN;
+  while(REG(RFCORE_SFR_MTCTRL) & RFCORE_SFR_MTCTRL_STATE);
+  REG(RFCORE_SFR_MTCTRL) |= RFCORE_SFR_MTCTRL_SYNC;
+  REG(RFCORE_SFR_MTCTRL) |= (RFCORE_SFR_MTCTRL_RUN);
+  while(!(REG(RFCORE_SFR_MTCTRL) & RFCORE_SFR_MTCTRL_STATE));
+}
+/*---------------------------------------------------------------------------*/
+static void
+set_poll_mode(uint8_t enable)
+{
+  poll_mode = enable;
+
+  if(enable) {
+    mac_timer_init();
+    REG(RFCORE_XREG_RFIRQM0) &= ~RFCORE_XREG_RFIRQM0_FIFOP; /* mask out FIFOP interrupt source */
+    REG(RFCORE_SFR_RFIRQF0) &= ~RFCORE_SFR_RFIRQF0_FIFOP;   /* clear pending FIFOP interrupt */
+    NVIC_DisableIRQ(RF_TX_RX_IRQn);                         /* disable RF interrupts */
+
+    /* clear any buffered packets */
+    radio_802154_clear(&radio_dev);
+
+  } else {
+    REG(RFCORE_XREG_RFIRQM0) |= RFCORE_XREG_RFIRQM0_FIFOP;  /* enable FIFOP interrupt source */
+    NVIC_EnableIRQ(RF_TX_RX_IRQn);                          /* enable RF interrupts */
+  }
+}
+/*---------------------------------------------------------------------------*/
+static void
+set_send_on_cca(uint8_t enable)
+{
+  send_on_cca = enable;
+}
+/*---------------------------------------------------------------------------*/
+static void
 set_auto_ack(uint8_t enable)
 {
   if(enable) {
@@ -637,6 +663,34 @@ set_auto_ack(uint8_t enable)
     REG(RFCORE_XREG_FRMCTRL0) &= ~RFCORE_XREG_FRMCTRL0_AUTOACK;
     radio_dev.state->rx_mode &= ~RADIO_RX_MODE_AUTOACK;
   }
+}
+/*---------------------------------------------------------------------------*/
+static uint32_t
+get_sfd_timestamp(void)
+{
+  uint64_t sfd, timer_val, buffer;
+
+  REG(RFCORE_SFR_MTMSEL) = (REG(RFCORE_SFR_MTMSEL) & ~RFCORE_SFR_MTMSEL_MTMSEL) | 0x00000000;
+  REG(RFCORE_SFR_MTCTRL) |= RFCORE_SFR_MTCTRL_LATCH_MODE;
+  timer_val = REG(RFCORE_SFR_MTM0) & RFCORE_SFR_MTM0_MTM0;
+  timer_val |= ((REG(RFCORE_SFR_MTM1) & RFCORE_SFR_MTM1_MTM1) << 8);
+  REG(RFCORE_SFR_MTMSEL) = (REG(RFCORE_SFR_MTMSEL) & ~RFCORE_SFR_MTMSEL_MTMOVFSEL) | 0x00000000;
+  timer_val |= ((REG(RFCORE_SFR_MTMOVF0) & RFCORE_SFR_MTMOVF0_MTMOVF0) << 16);
+  timer_val |= ((REG(RFCORE_SFR_MTMOVF1) & RFCORE_SFR_MTMOVF1_MTMOVF1) << 24);
+  buffer = REG(RFCORE_SFR_MTMOVF2) & RFCORE_SFR_MTMOVF2_MTMOVF2;
+  timer_val |= (buffer << 32);
+
+  REG(RFCORE_SFR_MTMSEL) = (REG(RFCORE_SFR_MTMSEL) & ~RFCORE_SFR_MTMSEL_MTMSEL) | 0x00000001;
+  REG(RFCORE_SFR_MTCTRL) |= RFCORE_SFR_MTCTRL_LATCH_MODE;
+  sfd = REG(RFCORE_SFR_MTM0) & RFCORE_SFR_MTM0_MTM0;
+  sfd |= ((REG(RFCORE_SFR_MTM1) & RFCORE_SFR_MTM1_MTM1) << 8);
+  REG(RFCORE_SFR_MTMSEL) = (REG(RFCORE_SFR_MTMSEL) & ~RFCORE_SFR_MTMSEL_MTMOVFSEL) | 0x00000010;
+  sfd |= ((REG(RFCORE_SFR_MTMOVF0) & RFCORE_SFR_MTMOVF0_MTMOVF0) << 16);
+  sfd |= ((REG(RFCORE_SFR_MTMOVF1) & RFCORE_SFR_MTMOVF1_MTMOVF1) << 24);
+  buffer = REG(RFCORE_SFR_MTMOVF2) & RFCORE_SFR_MTMOVF2_MTMOVF2;
+  sfd |= (buffer << 32);
+
+  return RTIMER_NOW() - RADIO_TO_RTIMER(timer_val - sfd);
 }
 /*---------------------------------------------------------------------------*/
 /* Netstack API radio driver functions */
@@ -697,7 +751,9 @@ off(void)
   /* Wait for ongoing TX to complete (e.g. this could be an outgoing ACK) */
   while(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_TX_ACTIVE);
 
-  CC2538_RF_CSP_ISFLUSHRX();
+  if(!(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFOP)) {
+    CC2538_RF_CSP_ISFLUSHRX();
+  }
 
   /* Don't turn off if we are off as this will trigger a Strobe Error */
   if(REG(RFCORE_XREG_RXENABLE) != 0) {
@@ -735,7 +791,7 @@ init(void)
   REG(SYS_CTRL_SCGCRFC) = 1;
   REG(SYS_CTRL_DCGCRFC) = 1;
 
-  REG(RFCORE_XREG_CCACTRL0) = CC2538_RF_CCA_THRES_USER_GUIDE;
+  REG(RFCORE_XREG_CCACTRL0) = CC2538_RF_CCA_THRES;
 
   /*
    * Changes from default values
@@ -757,12 +813,7 @@ init(void)
   radio_dev.state->rx_mode |= RADIO_RX_MODE_AUTOACK;
 #endif
 
-  /* If we are a sniffer, turn off frame filtering */
-#if CC2538_RF_CONF_SNIFFER
-  REG(RFCORE_XREG_FRMFILT0) &= ~RFCORE_XREG_FRMFILT0_FRAME_FILTER_EN;
-#else
   radio_dev.state->rx_mode |= RADIO_RX_MODE_ADDRESS_FILTER;
-#endif
 
   /* Disable source address matching and autopend */
   REG(RFCORE_XREG_SRCMATCH) = 0;
@@ -775,13 +826,9 @@ init(void)
 
   set_channel(rf_channel);
 
-  /* Acknowledge RF interrupts, FIFOP only */
-  REG(RFCORE_XREG_RFIRQM0) |= RFCORE_XREG_RFIRQM0_FIFOP;
-  nvic_interrupt_enable(NVIC_INT_RF_RXTX);
-
   /* Acknowledge all RF Error interrupts */
   REG(RFCORE_XREG_RFERRM) = RFCORE_XREG_RFERRM_RFERRM;
-  nvic_interrupt_enable(NVIC_INT_RF_ERR);
+  NVIC_EnableIRQ(RF_ERR_IRQn);
 
   if(CC2538_RF_CONF_TX_USE_DMA) {
     /* Disable peripheral triggers for the channel */
@@ -817,6 +864,8 @@ init(void)
   GPIO_SET_OUTPUT(HGM_PORT_BASE, HGM_PIN_MASK);
   GPIO_SET_PIN(HGM_PORT_BASE, HGM_PIN_MASK);
 #endif /* CC2538_CONF_CC2592 */
+
+  set_poll_mode(poll_mode);
 
   process_start(&cc2538_rf_process, NULL);
 
@@ -882,33 +931,10 @@ prepare(const void *payload, unsigned short payload_len)
 }
 /*---------------------------------------------------------------------------*/
 static int
-transmit(unsigned short transmit_len)
-{
-  int ret;
-  rtimer_clock_t t0;
-  uint8_t was_off = 0;
-
-  if(!(rf_flags & RX_ACTIVE)) {
-    t0 = RTIMER_NOW();
-    on();
-    was_off = 1;
-    while(RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + ONOFF_TIME));
-  }
-
-  ret = radio_802154_transmit(&radio_dev, transmit_len);
-
-  if(was_off) {
-    off();
-  }
-
-  return ret;
-}
-/*---------------------------------------------------------------------------*/
-static int
 transmit_packet(unsigned short transmit_len)
 {
   uint8_t counter;
-  int ret = RADIO_TX_ERR;
+  int ret;
 
   PRINTF("RF: Transmit\n");
 
@@ -916,9 +942,11 @@ transmit_packet(unsigned short transmit_len)
     return RADIO_TX_ERR;
   }
 
-  if(channel_clear() == CC2538_RF_CCA_BUSY) {
-    RIMESTATS_ADD(contentiondrop);
-    return RADIO_TX_COLLISION;
+  if(send_on_cca) {
+    if(channel_clear() == CC2538_RF_CCA_BUSY) {
+      RIMESTATS_ADD(contentiondrop);
+      return RADIO_TX_COLLISION;
+    }
   }
 
   /*
@@ -958,10 +986,151 @@ transmit_packet(unsigned short transmit_len)
 }
 /*---------------------------------------------------------------------------*/
 static int
+transmit(unsigned short transmit_len)
+{
+  int ret;
+  rtimer_clock_t t0;
+  uint8_t was_off = 0;
+
+  if(!(rf_flags & RX_ACTIVE)) {
+    t0 = RTIMER_NOW();
+    on();
+    was_off = 1;
+    while(RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + ONOFF_TIME));
+  }
+
+  if(poll_mode) {
+    ret = transmit_packet(transmit_len);
+  } else {
+    ret = radio_802154_transmit(&radio_dev, transmit_len);
+  }
+
+  if(was_off) {
+    off();
+  }
+
+  return ret;
+}
+/*---------------------------------------------------------------------------*/
+static int
 send(const void *payload, unsigned short payload_len)
 {
   prepare(payload, payload_len);
   return transmit(payload_len);
+}
+/*---------------------------------------------------------------------------*/
+static int
+read_poll_mode(void *buf, unsigned short bufsize)
+{
+  uint8_t i;
+  uint8_t len;
+
+  PRINTF("RF: Read\n");
+
+  if((REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFOP) == 0) {
+    return 0;
+  }
+
+  /* Check the length */
+  len = REG(RFCORE_SFR_RFDATA);
+
+  /* Check for validity */
+  if(len > CC2538_RF_MAX_PACKET_LEN) {
+    /* Oops, we must be out of sync. */
+    PRINTF("RF: bad sync\n");
+
+    RIMESTATS_ADD(badsynch);
+    CC2538_RF_CSP_ISFLUSHRX();
+    return 0;
+  }
+
+  if(len <= CC2538_RF_MIN_PACKET_LEN) {
+    PRINTF("RF: too short\n");
+
+    RIMESTATS_ADD(tooshort);
+    CC2538_RF_CSP_ISFLUSHRX();
+    return 0;
+  }
+
+  if(len - CHECKSUM_LEN > bufsize) {
+    PRINTF("RF: too long\n");
+
+    RIMESTATS_ADD(toolong);
+    CC2538_RF_CSP_ISFLUSHRX();
+    return 0;
+  }
+
+  /* If we reach here, chances are the FIFO is holding a valid frame */
+  PRINTF("RF: read (0x%02x bytes) = ", len);
+  len -= CHECKSUM_LEN;
+
+  /* Don't bother with uDMA for short frames (e.g. ACKs) */
+  if(CC2538_RF_CONF_RX_USE_DMA && len > UDMA_RX_SIZE_THRESHOLD) {
+    PRINTF("<uDMA payload>");
+
+    /* Set the transfer destination's end address */
+    udma_set_channel_dst(CC2538_RF_CONF_RX_DMA_CHAN,
+                         (uint32_t)(buf) + len - 1);
+
+    /* Configure the control word */
+    udma_set_channel_control_word(CC2538_RF_CONF_RX_DMA_CHAN,
+                                  UDMA_RX_FLAGS | udma_xfer_size(len));
+
+    /* Enabled the RF RX uDMA channel */
+    udma_channel_enable(CC2538_RF_CONF_RX_DMA_CHAN);
+
+    /* Trigger the uDMA transfer */
+    udma_channel_sw_request(CC2538_RF_CONF_RX_DMA_CHAN);
+
+    /* Wait for the transfer to complete. */
+    while(udma_channel_get_mode(CC2538_RF_CONF_RX_DMA_CHAN));
+  } else {
+    for(i = 0; i < len; ++i) {
+      ((unsigned char *)(buf))[i] = REG(RFCORE_SFR_RFDATA);
+      PRINTF("%02x", ((unsigned char *)(buf))[i]);
+    }
+  }
+
+  /* Read the RSSI and CRC/Corr bytes */
+  last_rssi = ((int8_t)REG(RFCORE_SFR_RFDATA)) - RSSI_OFFSET;
+  last_crc_corr = REG(RFCORE_SFR_RFDATA);
+
+  PRINTF("%02x%02x\n", (uint8_t)last_rssi, last_crc_corr);
+
+  /* MS bit CRC OK/Not OK, 7 LS Bits, Correlation value */
+  if(last_crc_corr & CRC_BIT_MASK) {
+    packetbuf_set_attr(PACKETBUF_ATTR_RSSI, last_rssi);
+    packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, last_crc_corr & LQI_BIT_MASK);
+    RIMESTATS_ADD(llrx);
+  } else {
+    RIMESTATS_ADD(badcrc);
+    PRINTF("RF: Bad CRC\n");
+    CC2538_RF_CSP_ISFLUSHRX();
+    return 0;
+  }
+
+  if(!poll_mode) {
+    /* If FIFOP==1 and FIFO==0 then we had a FIFO overflow at some point. */
+    if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFOP) {
+      if(REG(RFCORE_XREG_FSMSTAT1) & RFCORE_XREG_FSMSTAT1_FIFO) {
+        process_poll(&cc2538_rf_process);
+      } else {
+        CC2538_RF_CSP_ISFLUSHRX();
+      }
+    }
+  }
+
+  return len;
+}
+/*---------------------------------------------------------------------------*/
+static int
+read(void *buf, unsigned short bufsize)
+{
+  if(poll_mode) {
+    return read_poll_mode(buf, bufsize);
+  } else {
+    return read_from_rxbuf(buf, bufsize);
+  }
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -975,9 +1144,9 @@ receiving_packet(void)
    *
    * FSMSTAT1 & (TX_ACTIVE | SFD) == SFD <=> receiving
    */
-  return ((REG(RFCORE_XREG_FSMSTAT1)
-           & (RFCORE_XREG_FSMSTAT1_TX_ACTIVE | RFCORE_XREG_FSMSTAT1_SFD))
-          == RFCORE_XREG_FSMSTAT1_SFD);
+  return (REG(RFCORE_XREG_FSMSTAT1)
+          & (RFCORE_XREG_FSMSTAT1_TX_ACTIVE | RFCORE_XREG_FSMSTAT1_SFD))
+         == RFCORE_XREG_FSMSTAT1_SFD;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -998,8 +1167,11 @@ get_value(radio_param_t param, radio_value_t *value)
 
   switch(param) {
   case RADIO_PARAM_POWER_MODE:
-    *value = (REG(RFCORE_XREG_RXENABLE) && RFCORE_XREG_RXENABLE_RXENMASK) == 0
-      ? RADIO_POWER_MODE_OFF : RADIO_POWER_MODE_ON;
+    if(rf_flags & RX_ACTIVE) {
+      *value = RADIO_POWER_MODE_ON;
+    } else {
+      *value = RADIO_POWER_MODE_OFF;
+    }
     return RADIO_RESULT_OK;
   case RADIO_PARAM_CHANNEL:
     *value = (radio_value_t)get_channel();
@@ -1021,6 +1193,15 @@ get_value(radio_param_t param, radio_value_t *value)
     if(REG(RFCORE_XREG_FRMCTRL0) & RFCORE_XREG_FRMCTRL0_AUTOACK) {
       *value |= RADIO_RX_MODE_AUTOACK;
     }
+    if(poll_mode) {
+      *value |= RADIO_RX_MODE_POLL_MODE;
+    }
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+    *value = 0;
+    if(send_on_cca) {
+      *value |= RADIO_TX_MODE_SEND_ON_CCA;
+    }
     return RADIO_RESULT_OK;
   case RADIO_PARAM_TXPOWER:
     *value = get_tx_power();
@@ -1030,6 +1211,12 @@ get_value(radio_param_t param, radio_value_t *value)
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RSSI:
     *value = get_rssi();
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_LAST_RSSI:
+    *value = last_rssi;
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_LAST_LINK_QUALITY:
+    *value = last_crc_corr & LQI_BIT_MASK;
     return RADIO_RESULT_OK;
   case RADIO_CONST_CHANNEL_MIN:
     *value = CC2538_RF_CHANNEL_MIN;
@@ -1050,9 +1237,8 @@ get_value(radio_param_t param, radio_value_t *value)
     *value = OUTPUT_POWER_MAX;
     return RADIO_RESULT_OK;
   case RADIO_PARAM_LAST_NUM_TRANSMISSIONS:
-    *value = radio_dev.state->last_tx_no;
+    *value = poll_mode ? 0 : radio_dev.state->last_tx_no;
     return RADIO_RESULT_OK;
-
   default:
     return RADIO_RESULT_NOT_SUPPORTED;
   }
@@ -1098,13 +1284,21 @@ set_value(radio_param_t param, radio_value_t value)
     return RADIO_RESULT_OK;
   case RADIO_PARAM_RX_MODE:
     if(value & ~(RADIO_RX_MODE_ADDRESS_FILTER |
-                 RADIO_RX_MODE_AUTOACK)) {
+                 RADIO_RX_MODE_AUTOACK |
+                 RADIO_RX_MODE_POLL_MODE)) {
       return RADIO_RESULT_INVALID_VALUE;
     }
 
     set_frame_filtering((value & RADIO_RX_MODE_ADDRESS_FILTER) != 0);
     set_auto_ack((value & RADIO_RX_MODE_AUTOACK) != 0);
+    set_poll_mode((value & RADIO_RX_MODE_POLL_MODE) != 0);
 
+    return RADIO_RESULT_OK;
+  case RADIO_PARAM_TX_MODE:
+    if(value & ~(RADIO_TX_MODE_SEND_ON_CCA)) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    set_send_on_cca((value & RADIO_TX_MODE_SEND_ON_CCA) != 0);
     return RADIO_RESULT_OK;
   case RADIO_PARAM_TXPOWER:
     if(value < OUTPUT_POWER_MIN || value > OUTPUT_POWER_MAX) {
@@ -1139,6 +1333,15 @@ get_object(radio_param_t param, void *dest, size_t size)
 
     return RADIO_RESULT_OK;
   }
+
+  if(param == RADIO_PARAM_LAST_PACKET_TIMESTAMP) {
+    if(size != sizeof(rtimer_clock_t) || !dest) {
+      return RADIO_RESULT_INVALID_VALUE;
+    }
+    *(rtimer_clock_t *)dest = get_sfd_timestamp();
+    return RADIO_RESULT_OK;
+  }
+
   return RADIO_RESULT_NOT_SUPPORTED;
 }
 /*---------------------------------------------------------------------------*/
@@ -1194,18 +1397,23 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
   PROCESS_BEGIN();
 
   while(1) {
-    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL ||
-                        !radio_802154_rx_buf_is_empty(&radio_dev));
+    /*
+     * Only if we are not in poll mode or we are in poll mode and
+     * transceiver has to be reset.
+     */
+    PROCESS_YIELD_UNTIL((!poll_mode || (rf_flags & RF_MUST_RESET)) &&
+                        (ev == PROCESS_EVENT_POLL ||
+                         !radio_802154_rx_buf_is_empty(&radio_dev)));
 
-    packetbuf_clear();
-    len = read(packetbuf_dataptr(), PACKETBUF_SIZE);
+    if(!poll_mode) {
+      packetbuf_clear();
+      len = read(packetbuf_dataptr(), PACKETBUF_SIZE);
 
-    PRINTF("Read packet - len: %d\n", len);
+      if(len > 0) {
+        packetbuf_set_datalen(len);
 
-    if(len > 0) {
-      packetbuf_set_datalen(len);
-
-      NETSTACK_RDC.input();
+        NETSTACK_RDC.input();
+      }
     }
 
     /* If we were polled due to an RF error, reset the transceiver */
@@ -1226,11 +1434,13 @@ PROCESS_THREAD(cc2538_rf_process, ev, data)
         on();
       }
     }
-    if(!radio_802154_rx_buf_is_empty(&radio_dev)) {
+
+    if(!poll_mode && !radio_802154_rx_buf_is_empty(&radio_dev)) {
       PRINTF("RF: more packets left - poll again\n");
       process_poll(&cc2538_rf_process);
     }
   }
+
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
@@ -1246,12 +1456,12 @@ cc2538_rf_rx_tx_isr(void)
 {
   ENERGEST_ON(ENERGEST_TYPE_IRQ);
 
-  /* process_poll(&cc2538_rf_process); */
-
   /* We only acknowledge FIFOP so we can safely wipe out the entire SFR */
   REG(RFCORE_SFR_RFIRQF0) = 0;
 
-  write_to_rxbuf();
+  if(!poll_mode) {
+    write_to_rxbuf();
+  }
 
   ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }
@@ -1309,5 +1519,4 @@ cc2538_rf_set_central_freq(uint8_t frequency)
   return set_frequency(frequency);
 }
 /*---------------------------------------------------------------------------*/
-
 /** @} */

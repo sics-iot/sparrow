@@ -49,7 +49,7 @@
  * Clock driver implementation for the TI cc2538
  */
 #include "contiki.h"
-#include "systick.h"
+#include "cc2538_cm3.h"
 #include "reg.h"
 #include "cpu.h"
 #include "dev/gptimer.h"
@@ -69,14 +69,13 @@
 #endif
 #define PRESCALER_VALUE         (SYS_CTRL_SYS_CLOCK / SYS_CTRL_1MHZ - 1)
 
-/* Reload value for SysTick counter */
+/* Period of the SysTick counter expressed as a number of ticks */
 #if SYS_CTRL_SYS_CLOCK % CLOCK_SECOND
 /* Too low clock speeds will lead to reduced accurracy */
 #error System clock speed too slow for CLOCK_SECOND, accuracy reduced
 #endif
-#define RELOAD_VALUE            (SYS_CTRL_SYS_CLOCK / CLOCK_SECOND - 1)
+#define SYSTICK_PERIOD          (SYS_CTRL_SYS_CLOCK / CLOCK_SECOND)
 
-static volatile uint64_t rt_ticks_startup = 0, rt_ticks_epoch = 0;
 static volatile rtimer_clock_t rt_last;
 static volatile clock_time_t current_time;
 static unsigned long current_time_epoch;
@@ -95,13 +94,7 @@ static unsigned long current_time_epoch;
 void
 clock_init(void)
 {
-  REG(SYSTICK_STRELOAD) = RELOAD_VALUE;
-
-  /* System clock source, Enable */
-  REG(SYSTICK_STCTRL) |= SYSTICK_STCTRL_CLK_SRC | SYSTICK_STCTRL_ENABLE;
-
-  /* Enable the SysTick Interrupt */
-  REG(SYSTICK_STCTRL) |= SYSTICK_STCTRL_INTEN;
+  SysTick_Config(SYSTICK_PERIOD);
 
   /*
    * Remove the clock gate to enable GPT0 and then initialise it
@@ -134,32 +127,18 @@ clock_time(void)
     r2 = current_time;
   } while(r1 != r2);
   return r1;
-  /* uint64_t r1, r2; */
-  /* do { */
-  /*   r1 = rt_ticks_startup; */
-  /*   r2 = rt_ticks_startup; */
-  /* } while(r1 != r2); */
-  /* r1 = r1 * CLOCK_SECOND; */
-  /* return r1 / RTIMER_SECOND; */
 }
 /*---------------------------------------------------------------------------*/
 void
 clock_set_seconds(unsigned long sec)
 {
   current_time_epoch = sec - clock_seconds();
-  /* rt_ticks_epoch = (uint64_t)sec * RTIMER_SECOND; */
 }
 /*---------------------------------------------------------------------------*/
 CCIF unsigned long
 clock_seconds(void)
 {
   return ((unsigned long)(clock_time() / CLOCK_SECOND)) + current_time_epoch;
-  /* uint64_t r1, r2; */
-  /* do { */
-  /*   r1 = rt_ticks_epoch; */
-  /*   r2 = rt_ticks_epoch; */
-  /* } while(r1 != r2); */
-  /* return r1 / RTIMER_SECOND; */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -197,45 +176,6 @@ clock_delay(unsigned int i)
 }
 /*---------------------------------------------------------------------------*/
 /**
- * \brief Update the software clock ticks and seconds
- *
- * This function is used to update the software tick counters whenever the
- * system clock might have changed, which can occur upon a SysTick ISR or upon
- * wake-up from PM1/2.
- *
- * For the software clock ticks counter, the Sleep Timer counter value is used
- * as the base tick value, and extended to a 64-bit value thanks to a detection
- * of wraparounds.
- *
- * For the seconds counter, the changes of the Sleep Timer counter value are
- * added to the reference time, which is either the startup time or the value
- * passed to clock_set_seconds().
- *
- * This function polls the etimer process if an etimer has expired.
- */
-static void
-update_ticks(void)
-{
-  rtimer_clock_t now;
-  uint32_t diff;
-
-  now = RTIMER_NOW();
-  diff = now - rt_last;
-  rt_last = now;
-
-  rt_ticks_startup += diff;
-  rt_ticks_epoch += diff;
-
-  /*
-   * Inform the etimer library that the system clock has changed and that an
-   * etimer might have expired.
-   */
-  if(etimer_pending()) {
-    etimer_request_poll();
-  }
-}
-/*---------------------------------------------------------------------------*/
-/**
  * \brief Adjust the clock following missed SysTick ISRs
  *
  * This function is useful when coming out of PM1/2, during which the system
@@ -245,15 +185,33 @@ update_ticks(void)
  * should really avoid calling this
  */
 void
-clock_adjust(void)
+clock_adjust(rtimer_clock_t ticks)
 {
-  /* Halt the SysTick while adjusting */
-  REG(SYSTICK_STCTRL) &= ~SYSTICK_STCTRL_ENABLE;
+  uint64_t adjustment;
 
-  update_ticks();
+  /*
+   * We need to convert sleep duration from rtimer ticks to clock
+   * ticks, adjustment/(RTIMER_SECOND/CLOCK_SECOND)
+   */
+  adjustment = ticks;
+  adjustment = adjustment * CLOCK_SECOND;
+  adjustment = adjustment / RTIMER_SECOND;
+
+  /* Halt the SysTick while adjusting */
+  SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
+
+  current_time += (clock_time_t)adjustment;
 
   /* Re-Start the SysTick */
-  REG(SYSTICK_STCTRL) |= SYSTICK_STCTRL_ENABLE;
+  SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+
+  /*
+   * Inform the etimer library that the system clock has changed and that an
+   * etimer might have expired.
+   */
+  if(etimer_pending()) {
+    etimer_request_poll();
+  }
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -268,7 +226,14 @@ clock_isr(void)
   ENERGEST_ON(ENERGEST_TYPE_IRQ);
 
   current_time++;
-  update_ticks();
+
+  /*
+   * Inform the etimer library that the system clock has changed and that an
+   * etimer might have expired.
+   */
+  if(etimer_pending()) {
+    etimer_request_poll();
+  }
 
   ENERGEST_OFF(ENERGEST_TYPE_IRQ);
 }

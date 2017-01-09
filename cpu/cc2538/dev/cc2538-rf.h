@@ -47,12 +47,26 @@
 #include "dev/radio.h"
 #include "dev/rfcore.h"
 #include "reg.h"
+
+#ifndef CC2538_CONF_CC2592
+#define CC2538_CONF_CC2592 0
+#endif
+
 /*---------------------------------------------------------------------------
  * RF Config
  *---------------------------------------------------------------------------*/
-/* Constants */
-#define CC2538_RF_CCA_THRES_USER_GUIDE 0xF8
+/*
+ * Constants depending on if CC2538 is used together with CC2592 or not.
+ */
+#if CC2538_CONF_CC2592
+#define CC2538_RF_CCA_THRES_USER_GUIDE 0x04
+#define CC2538_RF_TX_POWER_RECOMMENDED 0xC5 /* ToDo: Determine value */
+#else /* CC2538_CONF_CC2592 */
+#define CC2538_RF_CCA_THRES_USER_GUIDE 0xF8 /* User guide recommendation */
 #define CC2538_RF_TX_POWER_RECOMMENDED 0xD5 /* ToDo: Determine value */
+#endif /* CC2538_CONF_CC2592 */
+
+/* Constants */
 #define CC2538_RF_FREQ_MIN                0
 #define CC2538_RF_FREQ_MAX              113
 #define CC2538_RF_CHANNEL_MIN            11
@@ -73,7 +87,7 @@
 #ifdef CC2538_RF_CONF_CCA_THRES
 #define CC2538_RF_CCA_THRES CC2538_RF_CONF_CCA_THRES
 #else
-#define CC2538_RF_CCA_THRES CCA_THRES_USER_GUIDE /** User guide recommendation */
+#define CC2538_RF_CCA_THRES CC2538_RF_CCA_THRES_USER_GUIDE
 #endif /* CC2538_RF_CONF_CCA_THRES */
 
 #ifdef CC2538_RF_CONF_CHANNEL
@@ -171,11 +185,12 @@ int8_t cc2538_rf_set_central_freq(uint8_t freq);
 /**
  * \brief Read the central frequency of the RF module.
  *
- * This function returns the central frequency of the CC2538 RF module in the 
+ * This function returns the central frequency of the CC2538 RF module in the
  * range specified by macros CC2538_RF_FREQ_MIN, CC2538_RF_FREQ_MAX. In order
  * to get the actual frequency in MHz, the value must be added to 2394 (MHz).
  */
 uint8_t cc2538_rf_get_central_freq(void);
+/*---------------------------------------------------------------------------*/
 #endif /* CC2538_RF_H__ */
 
 /**

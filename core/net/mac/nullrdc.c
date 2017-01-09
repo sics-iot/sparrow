@@ -47,9 +47,10 @@
 #include "net/llsec/anti-replay.h"
 #include <string.h>
 
-#if CONTIKI_TARGET_COOJA
+#if CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64
 #include "lib/simEnvChange.h"
-#endif /* CONTIKI_TARGET_COOJA */
+#include "sys/cooja_mt.h"
+#endif /* CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64 */
 
 #define DEBUG 0
 #if DEBUG
@@ -198,10 +199,10 @@ send_one_packet(mac_callback_t sent, void *ptr)
           wt = RTIMER_NOW();
           watchdog_periodic();
           while(RTIMER_CLOCK_LT(RTIMER_NOW(), wt + ACK_WAIT_TIME)) {
-#if CONTIKI_TARGET_COOJA
+#if CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64
             simProcessRunValue = 1;
             cooja_mt_yield();
-#endif /* CONTIKI_TARGET_COOJA */
+#endif /* CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64 */
           }
 
           ret = MAC_TX_NOACK;
@@ -216,10 +217,10 @@ send_one_packet(mac_callback_t sent, void *ptr)
               watchdog_periodic();
               while(RTIMER_CLOCK_LT(RTIMER_NOW(),
                                     wt + AFTER_ACK_DETECTED_WAIT_TIME)) {
-      #if CONTIKI_TARGET_COOJA
-                  simProcessRunValue = 1;
-                  cooja_mt_yield();
-      #endif /* CONTIKI_TARGET_COOJA */
+#if CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64
+                simProcessRunValue = 1;
+                cooja_mt_yield();
+#endif /* CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64 */
               }
             }
 
@@ -235,8 +236,8 @@ send_one_packet(mac_callback_t sent, void *ptr)
               }
             }
           } else {
-	    PRINTF("nullrdc tx noack\n");
-	  }
+            PRINTF("nullrdc tx noack\n");
+          }
         }
         break;
       case RADIO_TX_COLLISION:
@@ -366,6 +367,7 @@ packet_input(void)
     int duplicate = 0;
 
 #if NULLRDC_802154_AUTOACK || NULLRDC_802154_AUTOACK_HW
+#if RDC_WITH_DUPLICATE_DETECTION
     /* Check for duplicate packet. */
     duplicate = mac_sequence_is_duplicate();
     if(duplicate) {
@@ -375,9 +377,9 @@ packet_input(void)
     } else {
       mac_sequence_register_seqno();
     }
+#endif /* RDC_WITH_DUPLICATE_DETECTION */
 #endif /* NULLRDC_802154_AUTOACK */
 
-/* TODO We may want to acknowledge only authentic frames */ 
 #if NULLRDC_SEND_802154_ACK
     {
       frame802154_t info154;
