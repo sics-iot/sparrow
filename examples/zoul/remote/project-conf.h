@@ -31,7 +31,7 @@
 #define PROJECT_CONF_H_
 
 #define PRODUCT_TYPE_INT64 0x70B3D57D53000001ULL
-#define PRODUCT_LABEL "Zoul RE-Mote"
+#define PRODUCT_LABEL BOARD_STRING
 
 #define IPSO_TEMPERATURE platform_ipso_temperature
 

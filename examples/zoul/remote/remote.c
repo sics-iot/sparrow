@@ -66,7 +66,7 @@ AUTOSTART_PROCESSES(&sparrow_main);
 #endif
 
 #ifndef LWM2M_SERVER_ADDRESS
-#define LWM2M_SERVER_ADDRESS "fd00::1"
+#define LWM2M_SERVER_ADDRESS "fd02::1"
 #endif
 
 /*---------------------------------------------------------------------------*/
