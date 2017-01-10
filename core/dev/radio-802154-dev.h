@@ -117,4 +117,6 @@ radio_802154_rf_buffer_t *radio_802154_handle_ack(const struct radio_802154_driv
 /* The transmit will transmit with built-in retransmission and ACK handling */
 int radio_802154_transmit(const struct radio_802154_driver *radio, unsigned short total_len);
 
+void radio_802154_handle_collisions(int on);
+
 #endif /* RADIO_802154_DEV_H_ */
