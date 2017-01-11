@@ -45,6 +45,8 @@
 #ifndef CONTIKI_CONF_H_
 #define CONTIKI_CONF_H_
 
+#define PLATFORM_HAS_CC2538 1
+
 /* Include macros for enabling/disabling interrupts */
 #include "cpu.h"
 

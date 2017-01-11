@@ -31,17 +31,9 @@
 #define PROJECT_CONF_H_
 
 /*
- * Custom configuration for platform Felicia
- */
-#ifdef CONTIKI_TARGET_FELICIA
-#define PLATFORM_WITH_CC2538 1
-#endif /* CONTIKI_TARGET_FELICIA */
-
-/*
  * Custom configuration for platform Zoul
  */
 #ifdef CONTIKI_TARGET_ZOUL_SPARROW
-#define PLATFORM_WITH_CC2538 1
 
 /* Use UART by default on Zoul platforms unless USB_DEBUG_PORT is set */
 #ifndef WITH_UART
@@ -58,7 +50,7 @@
 /*
  * Custom configuration for CC2538 based platforms
  */
-#ifdef PLATFORM_WITH_CC2538
+#ifdef PLATFORM_HAS_CC2538
 
 /* LPM needs to be enabled for select the 32MHz clock */
 #define LPM_CONF_ENABLE          1
@@ -85,7 +77,7 @@
 
 #endif /* WITH_UART */
 
-#endif /* PLATFORM_WITH_CC2538 */
+#endif /* PLATFORM_HAS_CC2538 */
 
 
 /* Get rid of address filter in NULLRDC - assume radio filter */
