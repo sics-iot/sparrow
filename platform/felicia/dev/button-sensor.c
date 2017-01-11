@@ -32,10 +32,14 @@
 #include "dev/nvic.h"
 #include "dev/ioc.h"
 #include "dev/gpio.h"
-#include "dev/slide-switch.h"
+#include "dev/button-sensor.h"
+#include "sys/timer.h"
 
-#define SLIDE_SWITCH_PORT_BASE  GPIO_PORT_TO_BASE(SLIDE_SWITCH_PORT)
-#define SLIDE_SWITCH_PIN_MASK   GPIO_PIN_MASK(SLIDE_SWITCH_PIN)
+#include <stdint.h>
+#include <string.h>
+
+#define USER_BUTTON_PORT_BASE  GPIO_PORT_TO_BASE(USER_BUTTON_PORT)
+#define USER_BUTTON_PIN_MASK   GPIO_PIN_MASK(USER_BUTTON_PIN)
 
 static struct timer debouncetimer;
 static uint8_t current_status = 0;
@@ -43,7 +47,8 @@ static uint8_t current_status = 0;
 static int
 value(int type)
 {
-  return GPIO_READ_PIN(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK) == 0;
+  return (GPIO_READ_PIN(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK) == 0) ||
+    !timer_expired(&debouncetimer);
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -56,7 +61,7 @@ status(int type)
 }
 /*---------------------------------------------------------------------------*/
 /**
- * \brief Interrupt handler for the slide switch.
+ * \brief Interrupt handler for the user button.
  *
  * \param port The port number that generated the interrupt
  * \param pin The pin number that generated the interrupt.
@@ -64,14 +69,14 @@ status(int type)
  * This function is called inside interrupt context.
  */
 static void
-switch_irq_handler(uint8_t port, uint8_t pin)
+button_irq_handler(uint8_t port, uint8_t pin)
 {
   if(!timer_expired(&debouncetimer)) {
     return;
   }
 
-  timer_set(&debouncetimer, CLOCK_SECOND / 32);
-  sensors_changed(&slide_switch_sensor);
+  timer_set(&debouncetimer, CLOCK_SECOND / 8);
+  sensors_changed(&button_sensor);
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -80,21 +85,19 @@ config(int type, int value)
   if(current_status == 0) {
     /* Initialize hardware */
 
-    GPIO_SOFTWARE_CONTROL(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+    GPIO_SOFTWARE_CONTROL(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
 
-    GPIO_SET_INPUT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+    GPIO_SET_INPUT(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
 
-    /* Enable edge detection, both edges */
-    GPIO_DETECT_EDGE(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
-    GPIO_TRIGGER_BOTH_EDGES(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+    /* Enable edge detection, on falling edge */
+    GPIO_DETECT_EDGE(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
+    GPIO_TRIGGER_SINGLE_EDGE(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
+    GPIO_DETECT_FALLING(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
 
-    /* Trigger interrupt on Falling edge */
-    /* GPIO_DETECT_FALLING(port_base, pin_mask); */
+    ioc_set_over(USER_BUTTON_PORT, USER_BUTTON_PIN, IOC_OVERRIDE_PUE);
 
-    ioc_set_over(SLIDE_SWITCH_PORT, SLIDE_SWITCH_PIN, IOC_OVERRIDE_PUE);
-
-    gpio_register_callback(switch_irq_handler,
-                           SLIDE_SWITCH_PORT, SLIDE_SWITCH_PIN);
+    gpio_register_callback(button_irq_handler,
+                           USER_BUTTON_PORT, USER_BUTTON_PIN);
 
     current_status = 1;
   }
@@ -102,11 +105,12 @@ config(int type, int value)
   if(type == SENSORS_ACTIVE) {
     if(value) {
       timer_set(&debouncetimer, 0);
-      GPIO_ENABLE_INTERRUPT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
-      nvic_interrupt_enable(SLIDE_SWITCH_VECTOR);
+      GPIO_ENABLE_INTERRUPT(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
+      NVIC_EnableIRQ(USER_BUTTON_VECTOR);
       current_status |= 2;
     } else {
-      GPIO_DISABLE_INTERRUPT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+      GPIO_DISABLE_INTERRUPT(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
+      NVIC_DisableIRQ(USER_BUTTON_VECTOR);
       current_status &= ~2;
     }
     return 1;
@@ -114,6 +118,5 @@ config(int type, int value)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-SENSORS_SENSOR(slide_switch_sensor, SLIDE_SWITCH_SENSOR,
-               value, config, status);
+SENSORS_SENSOR(button_sensor, BUTTON_SENSOR, value, config, status);
 /*---------------------------------------------------------------------------*/

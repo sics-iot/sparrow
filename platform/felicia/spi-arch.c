@@ -212,7 +212,7 @@ ssi_reconfigure(int init_tx_buffer)
   int i;
 
   /* Disable SSI0 interrupt in NVIC */
-  nvic_interrupt_disable(NVIC_INT_SSI0);
+  NVIC_DisableIRQ(SSI0_IRQn);
 
   /* Reset SSI peripheral */
   REG(SYS_CTRL_SRSSI) = 1;
@@ -256,9 +256,9 @@ ssi_reconfigure(int init_tx_buffer)
   REG(SSI0_BASE + SSI_IM) = SSI_IM_RXIM | SSI_IM_RTIM;
   /* Enable the SSI */
   REG(SSI0_BASE + SSI_CR1) |= SSI_CR1_SSE;
-    
+
   /* Enable SSI0 interrupt in NVIC */
-  nvic_interrupt_enable(NVIC_INT_SSI0);
+  NVIC_EnableIRQ(SSI0_IRQn);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -306,8 +306,8 @@ felicia_spi_init(void)
   GPIO_TRIGGER_BOTH_EDGES(SPI_CS_PORT_BASE, SPI_CS_PIN_MASK);
   GPIO_ENABLE_INTERRUPT(SPI_CS_PORT_BASE, SPI_CS_PIN_MASK);
   ioc_set_over(SPI_CS_PORT, SPI_CS_PIN, IOC_OVERRIDE_PUE);
-  /* Enable interrupt form CS pin */
-  nvic_interrupt_enable(NVIC_INT_GPIO_PORT_B);
+  /* Enable interrupt for CS pin */
+  NVIC_EnableIRQ(GPIO_B_IRQn);
   gpio_register_callback(cs_isr, SPI_CS_PORT, SPI_CS_PIN);
 }
 /*---------------------------------------------------------------------------*/

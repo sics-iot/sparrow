@@ -30,11 +30,6 @@ ifeq ($(BOARD), remote)
   CFLAGS += -DCONTIKI_BOARD_REMOTE_REVA=1
 endif
 
-ifeq ($(BOARD), firefly)
-  override BOARD = firefly-reva
-  CFLAGS += -DCONTIKI_BOARD_FIREFLY_REVA=1
-endif
-
 CFLAGS += -DCONTIKI_TARGET_ZOUL=1
 
 ifdef MAKE_WITH_868

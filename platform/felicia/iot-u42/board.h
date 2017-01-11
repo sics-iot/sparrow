@@ -194,7 +194,7 @@
 #define CC1200_RESET_PORT           GPIO_A_NUM
 #define CC1200_RESET_PIN            6
 /* What GPIO from the radio will trigger IRQ - only GDO0 is needed */
-#define CC1200_GPIOx_VECTOR         NVIC_INT_GPIO_PORT_B
+#define CC1200_GPIOx_VECTOR         GPIO_B_IRQn
 
 #define CC1200_CONF_AUTOCAL         1
 

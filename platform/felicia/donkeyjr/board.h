@@ -134,7 +134,7 @@
  */
 #define USER_BUTTON_PORT              GPIO_B_NUM
 #define USER_BUTTON_PIN               7
-#define USER_BUTTON_VECTOR            NVIC_INT_GPIO_PORT_B
+#define USER_BUTTON_VECTOR            GPIO_B_IRQn
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**

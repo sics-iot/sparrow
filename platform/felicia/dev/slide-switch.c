@@ -32,59 +32,31 @@
 #include "dev/nvic.h"
 #include "dev/ioc.h"
 #include "dev/gpio.h"
-#include "dev/button-sensor.h"
-#include "sys/timer.h"
+#include "dev/slide-switch.h"
 
-#include <stdint.h>
-#include <string.h>
-
-#define USER_BUTTON_PORT_BASE  GPIO_PORT_TO_BASE(USER_BUTTON_PORT)
-#define USER_BUTTON_PIN_MASK   GPIO_PIN_MASK(USER_BUTTON_PIN)
+#define SLIDE_SWITCH_PORT_BASE  GPIO_PORT_TO_BASE(SLIDE_SWITCH_PORT)
+#define SLIDE_SWITCH_PIN_MASK   GPIO_PIN_MASK(SLIDE_SWITCH_PIN)
 
 static struct timer debouncetimer;
+static uint8_t current_status = 0;
 /*---------------------------------------------------------------------------*/
 static int
-user_button_value(int type)
+value(int type)
 {
-  return (GPIO_READ_PIN(USER_BUTTON_PORT_BASE,
-                        USER_BUTTON_PIN_MASK) == 0) ||
-    !timer_expired(&debouncetimer);
+  return GPIO_READ_PIN(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK) == 0;
 }
 /*---------------------------------------------------------------------------*/
 static int
-user_button_status(int type)
+status(int type)
 {
+  if(type == SENSORS_ACTIVE || type == SENSORS_READY) {
+    return (current_status & 2) != 0;
+  }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 /**
- * \brief PIN initializer for platform (user) button
- * \param port_base GPIO port's register offset
- * \param pin_mask Pin mask corresponding to the button's pin
- */
-static void
-config(uint32_t port_base, uint32_t pin_mask)
-{
-  /* Software controlled */
-  GPIO_SOFTWARE_CONTROL(port_base, pin_mask);
-
-  /* Set pin to input */
-  GPIO_SET_INPUT(port_base, pin_mask);
-
-  /* Enable edge detection */
-  GPIO_DETECT_EDGE(port_base, pin_mask);
-
-  /* Single edge */
-  GPIO_TRIGGER_SINGLE_EDGE(port_base, pin_mask);
-
-  /* Trigger interrupt on Falling edge */
-  GPIO_DETECT_FALLING(port_base, pin_mask);
-
-  GPIO_ENABLE_INTERRUPT(port_base, pin_mask);
-}
-/*---------------------------------------------------------------------------*/
-/**
- * \brief Interrupt handler for the user button.
+ * \brief Interrupt handler for the slide switch.
  *
  * \param port The port number that generated the interrupt
  * \param pin The pin number that generated the interrupt.
@@ -92,37 +64,57 @@ config(uint32_t port_base, uint32_t pin_mask)
  * This function is called inside interrupt context.
  */
 static void
-user_button_irq_handler(uint8_t port, uint8_t pin)
+switch_irq_handler(uint8_t port, uint8_t pin)
 {
   if(!timer_expired(&debouncetimer)) {
     return;
   }
 
-  timer_set(&debouncetimer, CLOCK_SECOND / 8);
-  sensors_changed(&button_sensor);
+  timer_set(&debouncetimer, CLOCK_SECOND / 32);
+  sensors_changed(&slide_switch_sensor);
 }
 /*---------------------------------------------------------------------------*/
-/**
- * \brief Initialize configuration for the user button.
- *
- * \param type ignored
- * \param value ignored
- * \return ignored
- */
 static int
-config_user_button(int type, int value)
+config(int type, int value)
 {
-  config(USER_BUTTON_PORT_BASE, USER_BUTTON_PIN_MASK);
+  if(current_status == 0) {
+    /* Initialize hardware */
 
-  ioc_set_over(USER_BUTTON_PORT, USER_BUTTON_PIN, IOC_OVERRIDE_PUE);
+    GPIO_SOFTWARE_CONTROL(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
 
-  timer_set(&debouncetimer, 0);
+    GPIO_SET_INPUT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
 
-  nvic_interrupt_enable(USER_BUTTON_VECTOR);
+    /* Enable edge detection, both edges */
+    GPIO_DETECT_EDGE(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+    GPIO_TRIGGER_BOTH_EDGES(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
 
-  gpio_register_callback(user_button_irq_handler,
-    USER_BUTTON_PORT, USER_BUTTON_PIN);
-  return 1;
+    /* Trigger interrupt on Falling edge */
+    /* GPIO_DETECT_FALLING(port_base, pin_mask); */
+
+    ioc_set_over(SLIDE_SWITCH_PORT, SLIDE_SWITCH_PIN, IOC_OVERRIDE_PUE);
+
+    gpio_register_callback(switch_irq_handler,
+                           SLIDE_SWITCH_PORT, SLIDE_SWITCH_PIN);
+
+    current_status = 1;
+  }
+
+  if(type == SENSORS_ACTIVE) {
+    if(value) {
+      timer_set(&debouncetimer, 0);
+      GPIO_ENABLE_INTERRUPT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+      NVIC_EnableIRQ(SLIDE_SWITCH_VECTOR);
+      current_status |= 2;
+    } else {
+      GPIO_DISABLE_INTERRUPT(SLIDE_SWITCH_PORT_BASE, SLIDE_SWITCH_PIN_MASK);
+      NVIC_DisableIRQ(SLIDE_SWITCH_VECTOR);
+      current_status &= ~2;
+    }
+    return 1;
+  }
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
-SENSORS_SENSOR(button_sensor, BUTTON_SENSOR, user_button_value, config_user_button, user_button_status);
+SENSORS_SENSOR(slide_switch_sensor, SLIDE_SWITCH_SENSOR,
+               value, config, status);
+/*---------------------------------------------------------------------------*/
