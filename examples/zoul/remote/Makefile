@@ -3,7 +3,7 @@ CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT = remote
 
 TARGET=zoul-sparrow
-BOARD=remote
+BOARD=remote-reva
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 

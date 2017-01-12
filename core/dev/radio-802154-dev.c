@@ -43,7 +43,6 @@
 #include "dev/radio.h"
 #include "dev/watchdog.h"
 
-/*---------------------------------------------------------------------------*/
 #define DEBUG 0
 #if DEBUG
 #include <stdio.h>
@@ -51,6 +50,14 @@
 #else
 #define PRINTF(...)
 #endif
+
+static uint8_t handle_collisions = 1;
+/*---------------------------------------------------------------------------*/
+void
+radio_802154_handle_collisions(int on)
+{
+  handle_collisions = on != 0;
+}
 /*---------------------------------------------------------------------------*/
 int
 radio_802154_rx_buf_is_empty(const struct radio_802154_driver *radio)
@@ -109,6 +116,13 @@ radio_802154_release_readbuf(const struct radio_802154_driver *radio)
   radio->state->read_buf = (radio->state->read_buf + 1) % RADIO_802154_BUFFER_COUNT;
   PRINTF("Released read buffer - write: %d read: %d\n",
          radio->state->write_buf, radio->state->read_buf);
+}
+/*---------------------------------------------------------------------------*/
+void
+radio_802154_clear(const struct radio_802154_driver *radio)
+{
+  /* Drop any buffers */
+  radio->state->read_buf = radio->state->write_buf;
 }
 /*---------------------------------------------------------------------------*/
 /* called from receive Interrupt */
@@ -225,18 +239,23 @@ radio_802154_transmit(const struct radio_802154_driver *radio, unsigned short to
       break;
     case RADIO_TX_COLLISION:
       /* radio did give up... no transmission */
-      wt = RTIMER_NOW();
-      watchdog_periodic();
-      while(RTIMER_CLOCK_LT(RTIMER_NOW(),
-                            wt + (radio->collision_wait_time << collisions))) {
+      if(handle_collisions) {
+        wt = RTIMER_NOW();
+        watchdog_periodic();
+        while(RTIMER_CLOCK_LT(RTIMER_NOW(),
+                              wt + (radio->collision_wait_time << collisions))) {
+        }
+        collisions++;
+        if(collisions > 4) {
+          /* Ok give up this transmission - and continue */
+          collisions = 0;
+          attempts++; /* count 4 fails as an attempt - but not as transmission */
+        }
+        PRINTF("Collision: %d %d\n", collisions, attempts);
+      } else {
+        /* Directly return if collisions should not be handled */
+        return RADIO_TX_COLLISION;
       }
-      collisions++;
-      if(collisions > 4) {
-        /* Ok give up this transmission - and continue */
-        collisions = 0;
-        attempts++; /* count 4 fails as an attempt - but not as transmission */
-      }
-      PRINTF("Collission: %d %d\n", collisions, attempts);
       ret = RADIO_TX_COLLISION;
       break;
     case RADIO_TX_ERR:
@@ -252,3 +271,4 @@ radio_802154_transmit(const struct radio_802154_driver *radio, unsigned short to
   }
   return ret;
 }
+/*---------------------------------------------------------------------------*/

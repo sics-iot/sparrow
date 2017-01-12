@@ -1,0 +1,1 @@
+CONTIKI_TARGET_SOURCEFILES += button-sensor.c slide-switch.c

@@ -39,8 +39,6 @@
 #define USB_SERIAL_RADIO_GET_PRODUCT_DESCRIPTION serial_radio_get_product_description
 #define USB_SERIAL_GET_PRODUCT_DESCRIPTION dual_mode_get_product_description
 
-#define STORE_LOCATIONID_LOCALLY 1
-
 #define FRAMER_802154_HANDLER handler_802154_frame_received
 
 /* FIXME check if this is really needed */

@@ -269,18 +269,25 @@ function onMessage(evt) {
     }
 }
 
+function checkType(type, prefix) {
+    if (type.length < prefix.length) return false;
+    for (var i = prefix.length - 1; (i >= 0) && (type[i] === prefix[i]); --i)
+        continue;
+    return i < 0;
+}
+
 // Generate buttons based on the type of device
 function getTypeButtons(type, address) {
     buttons = '<button class="cupid-green-small" onClick="prepareModal(\'Ping Node\', \'test\', \'ping ' + address + '\');">Ping node</button>&nbsp';
     // Fix this later - should check the actual product type instead.
-    if (type == "IoT-U10" || type == "IoT-U10+" ||
-	type == "iot-u10" || type == "iot-u10+") {
+    type = type.toLowerCase();
+    if (checkType(type, "iot-u10")) {
 	// generate the buttons for the IoT-U10/IoT-U10+
 	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="temp_read(\'' + address + '\')">Read Temp</button>';
-    } else if (type == "Zoul RE-Mote") {
-	// generate the buttons for the Zoul RE-MOTE
+    } else if (checkType(type, "zolertia ") || checkType(type, "zoul ")) {
+	// generate the buttons for the Zoul RE-MOTE/Firefly
 	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',2)">Led 3 Toggle</button>&nbsp;' +

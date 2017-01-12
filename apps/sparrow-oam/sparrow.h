@@ -45,12 +45,6 @@
 #include <stddef.h>
 #include "sparrow-byteorder.h"
 
-#ifdef SPARROW_CONF_STORE_LOCATIONID_LOCALLY
-#define SPARROW_STORE_LOCATIONID_LOCALLY SPARROW_CONF_STORE_LOCATIONID_LOCALLY
-#else
-#define SPARROW_STORE_LOCATIONID_LOCALLY 1
-#endif /* SPARROW_CONF_STORE_LOCATIONID_LOCALLY */
-
 typedef struct {
   uint8_t id[16];
 } sparrow_id_t;

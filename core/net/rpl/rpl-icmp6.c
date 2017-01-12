@@ -202,14 +202,6 @@ rpl_icmp6_update_nbr_table(uip_ipaddr_t *from, nbr_table_reason_t reason, void *
     }
   }
 
-  if(nbr != NULL) {
-#if UIP_ND6_SEND_NA
-    /* set reachable timer if we added or found the nbr entry - and update
-       neighbor entry to reachable to avoid sending NS/NA, etc.  */
-    stimer_set(&nbr->reachable, UIP_ND6_REACHABLE_TIME / 1000);
-    nbr->state = NBR_REACHABLE;
-#endif /* UIP_ND6_SEND_NA */
-  }
   return nbr;
  }
 /*---------------------------------------------------------------------------*/
@@ -636,15 +628,13 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
 }
 /*---------------------------------------------------------------------------*/
 static void
-dao_input_storing(void)
+dao_input_storing(rpl_instance_t *instance)
 {
 #if RPL_WITH_STORING
   uip_ipaddr_t dao_sender_addr;
   rpl_dag_t *dag;
-  rpl_instance_t *instance;
   unsigned char *buffer;
   uint16_t sequence;
-  uint8_t instance_id;
   uint8_t lifetime;
   uint8_t prefixlen;
   uint8_t flags;
@@ -672,16 +662,8 @@ dao_input_storing(void)
   buffer = UIP_ICMP_PAYLOAD;
   buffer_length = uip_len - uip_l3_icmp_hdr_len;
 
-  pos = 0;
-  instance_id = buffer[pos++];
-
-  instance = rpl_get_instance(instance_id);
-  if(instance == NULL) {
-    PRINTF("RPL: Ignoring a DAO for an unknown RPL instance(%u)\n",
-           instance_id);
-    return;
-  }
-
+  /* Position 0 is the instance id that already been handled */
+  pos = 1;
   lifetime = instance->default_lifetime;
 
   flags = buffer[pos++];
@@ -908,16 +890,14 @@ fwd_dao:
 }
 /*---------------------------------------------------------------------------*/
 static void
-dao_input_nonstoring(void)
+dao_input_nonstoring(rpl_instance_t *instance)
 {
 #if RPL_WITH_NON_STORING
   uip_ipaddr_t dao_sender_addr;
   uip_ipaddr_t dao_parent_addr;
   rpl_dag_t *dag;
-  rpl_instance_t *instance;
   unsigned char *buffer;
   uint16_t sequence;
-  uint8_t instance_id;
   uint8_t lifetime;
   uint8_t prefixlen;
   uint8_t flags;
@@ -936,9 +916,8 @@ dao_input_nonstoring(void)
   buffer = UIP_ICMP_PAYLOAD;
   buffer_length = uip_len - uip_l3_icmp_hdr_len;
 
-  pos = 0;
-  instance_id = buffer[pos++];
-  instance = rpl_get_instance(instance_id);
+  /* Position 0 is the instance id that already been handled */
+  pos = 1;
   lifetime = instance->default_lifetime;
 
   flags = buffer[pos++];
@@ -1031,9 +1010,9 @@ dao_input(void)
   }
 
   if(RPL_IS_STORING(instance)) {
-    dao_input_storing();
+    dao_input_storing(instance);
   } else if(RPL_IS_NON_STORING(instance)) {
-    dao_input_nonstoring();
+    dao_input_nonstoring(instance);
   }
 
  discard:

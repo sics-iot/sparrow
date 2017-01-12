@@ -144,7 +144,7 @@
  */
 #define USER_BUTTON_PORT              GPIO_D_NUM
 #define USER_BUTTON_PIN               6
-#define USER_BUTTON_VECTOR            NVIC_INT_GPIO_PORT_D
+#define USER_BUTTON_VECTOR            GPIO_D_IRQn
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**

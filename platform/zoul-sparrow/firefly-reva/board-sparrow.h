@@ -29,31 +29,21 @@
 
 /**
  * \file
- *         An implementation of the temperature API for platform Zoul
- * \author
- *         Niclas Finne <nfi@sics.se>
- *         Joakim Eriksson <joakime@sics.se>
+ *         Sparrow configuration for this board.
+ *
+ * \note   Do not include this file directly. It gets included by contiki-conf
+ *         after all relevant directives have been set.
  */
 
-#include "dev/zoul-sensors.h"
+#ifndef BOARD_SPARROW_H_
+#define BOARD_SPARROW_H_
 
-#if PLATFORM_HAS_SENSORS
-/*---------------------------------------------------------------------------*/
-uint32_t
-temperature_errorval(void)
-{
-  return CC2538_SENSORS_ERROR;
-}
-/*---------------------------------------------------------------------------*/
-uint32_t
-temperature_millikelvin(void)
-{
-  uint32_t val = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+#define PLATFORM_HAS_LEDS_EXT    1
+#define PLATFORM_HAS_SENSORS     1
+#define PLATFORM_GET_TEMPERATURE temperature_millikelvin
+uint32_t PLATFORM_GET_TEMPERATURE(void);
 
-  if(val == CC2538_SENSORS_ERROR)
-    return CC2538_SENSORS_ERROR;
+#undef BOARD_STRING
+#define BOARD_STRING "Zolertia Firefly revision A"
 
-  return (273150U + val);
-}
-/*---------------------------------------------------------------------------*/
-#endif /* PLATFORM_HAS_SENSORS */
+#endif /* BOARD_SPARROW_H_ */

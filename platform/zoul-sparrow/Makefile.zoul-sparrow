@@ -1,7 +1,9 @@
 ### Zoul Makefile
 
-IMAGE_TYPE_REMOTE  = 70B3D57D51000001
-IMAGE_TYPE_FIREFLY = 70B3D57D51000002
+IMAGE_TYPE_REMOTE_REVA  = 70B3D57D51000001
+IMAGE_TYPE_FIREFLY      = 70B3D57D51000002
+IMAGE_TYPE_REMOTE_REVB  = 70B3D57D51000003
+IMAGE_TYPE_FIREFLY_REVA = 70B3D57D51000004
 
 ifndef CONTIKI
   $(error CONTIKI not defined! You must specify where CONTIKI resides!)
@@ -15,10 +17,17 @@ ifndef SPARROW_TOOLS
   $(error SPARROW_TOOLS not defined! You must specify where SPARROW resides!)
 endif
 
-### If no board is specified the default option is the RE-Mote
+### If no board is specified the default option is the RE-Mote revision B
 ifeq ($(BOARD),)
-  BOARD=remote
-  CFLAGS += -DCONTIKI_BOARD_REMOTE=1
+  BOARD=remote-revb
+  CFLAGS += -DCONTIKI_BOARD_REMOTE_REVB=1
+endif
+
+### As previously the RE-Mote revision A was plainly defined as remote, keep for
+### backward compatibility
+ifeq ($(BOARD), remote)
+  override BOARD = remote-reva
+  CFLAGS += -DCONTIKI_BOARD_REMOTE_REVA=1
 endif
 
 CFLAGS += -DCONTIKI_TARGET_ZOUL=1
@@ -31,10 +40,14 @@ ifdef MAKE_WITH_920
   CFLAGS+=-DWITH_920=1
 endif
 
-ifeq ($(BOARD), remote)
-  IMAGE_TYPE = $(IMAGE_TYPE_REMOTE)
+ifeq ($(BOARD), remote-reva)
+  IMAGE_TYPE = $(IMAGE_TYPE_REMOTE_REVA)
 else ifeq ($(BOARD), firefly)
   IMAGE_TYPE = $(IMAGE_TYPE_FIREFLY)
+else ifeq ($(BOARD), remote-revb)
+  IMAGE_TYPE = $(IMAGE_TYPE_REMOTE_REVB)
+else ifeq ($(BOARD), firefly-reva)
+  IMAGE_TYPE = $(IMAGE_TYPE_FIREFLY_REVA)
 else ifeq ($(BOARD),)
   ${error BOARD not specified, please specify a Zoul board!}
 endif
@@ -46,25 +59,27 @@ endif
 PYTHON = python
 BSL_FLAGS += -e -w -v
 
+BSL_SPEED ?= 460800
+
+# Works in Linux and probably on OSX too (RTCC example)
+CFLAGS += -DDATE="\"`date +"%02u %02d %02m %02y %02H %02M %02S"`\""
+
 ### Configure the build for the board and pull in board-specific sources
 CONTIKI_TARGET_DIRS += . dev
 CONTIKI_TARGET_DIRS += $(BOARD)
 
 ### Include the original zoul platform device drivers
-CONTIKI_TARGET_DIRS += ${addprefix ../../contiki/,platform/zoul platform/zoul/dev}
+CONTIKI_TARGET_DIRS += ${addprefix ../../contiki/platform/zoul/,. dev $(BOARD)}
 
 ### Include the board dir if one exists
+-include $(CONTIKI)/platform/zoul/$(BOARD)/Makefile.$(BOARD)
 -include $(CONTIKI_TARGET_PLATFORM)/$(BOARD)/Makefile.$(BOARD)
 
 ### Include
-CONTIKI_TARGET_SOURCEFILES += contiki-main.c cc1200-zoul-arch.c
-ifeq ($(BOARD), remote)
-  CONTIKI_TARGET_SOURCEFILES += leds-res-arch.c
-else
-  CONTIKI_TARGET_SOURCEFILES += leds-arch.c
-endif
-CONTIKI_TARGET_SOURCEFILES += leds-ext-arch.c temperature-arch.c
+CONTIKI_TARGET_SOURCEFILES += contiki-main.c
+CONTIKI_TARGET_SOURCEFILES += cc1200-zoul-arch.c
 CONTIKI_TARGET_SOURCEFILES += adc-zoul.c button-sensor.c zoul-sensors.c
+CONTIKI_TARGET_SOURCEFILES += leds-ext-arch.c temperature-arch.c
 CONTIKI_TARGET_SOURCEFILES += $(BOARD_SOURCEFILES)
 
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
@@ -84,6 +99,10 @@ MODULES += core/net core/net/mac \
            core/net/mac/contikimac \
            core/net/llsec core/net/llsec/noncoresec
 
+ifeq ($(WITH_IP64),1)
+  MODULES += core/net/ip64
+endif
+
 EXTERNAL_MODULES += $(SPARROW)/dev/cc1200
 
 EXTERNAL_MODULES += $(SPARROW)/lib/image-trailer
@@ -99,14 +118,14 @@ endif
 ifeq ($(HOST_OS),Darwin)
   USBDEVPREFIX=
   MOTELIST := $(CONTIKI)/tools/zolertia/motelist-zolertia-macos
-  MOTES := $(shell $(MOTELIST) -c 2>&- | cut -f 2 -d ,)
+  MOTES := $(shell $(MOTELIST) $(MOTELIST_FLAGS) -c 2>&- | cut -f 2 -d ,)
   SERIALDUMP := $(CONTIKI)/tools/sky/serialdump-macos
 else
 ### If we are not running under Mac, we assume Linux
   USBDEVPREFIX=
   SERIALDUMP := $(CONTIKI)/tools/sky/serialdump-linux
   MOTELIST := $(CONTIKI)/tools/zolertia/motelist-zolertia
-  MOTES := $(shell $(MOTELIST) -b $(MOTELIST_ZOLERTIA) -c 2>&- | cut -f 2 -d , | \
+  MOTES := $(shell $(MOTELIST) $(MOTELIST_FLAGS) -c 2>&- | cut -f 2 -d , | \
             perl -ne 'print $$1 . " " if(m-(/dev/\w+)-);')
 endif
 
@@ -147,7 +166,7 @@ define UPLOAD_RULE
 	@BSL_ADDRESS=`$(OBJDUMP) -h $$*.elf | grep -B1 LOAD | \
 	             grep -Ev 'LOAD|\-\-' | awk '{print "0x" $$$$5}' | \
 	             sort -g | head -1`; \
-	$(PYTHON) $(BSL) $(BSL_FLAGS) -a $$$${BSL_ADDRESS} -p $(MOTE) $$<
+	$(PYTHON) $(BSL) $(BSL_FLAGS) -b $(BSL_SPEED) -a $$$${BSL_ADDRESS} -p $(MOTE) $$<
 endef
 
 ### Create an upload rule for every MOTE connected

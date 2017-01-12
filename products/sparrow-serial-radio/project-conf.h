@@ -30,19 +30,31 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
-#define SPARROW_CONF_STORE_LOCATIONID_LOCALLY 1
+/*
+ * Custom configuration for platform Zoul
+ */
+#ifdef CONTIKI_TARGET_ZOUL_SPARROW
 
-#if defined(CONTIKI_TARGET_FELICIA) || defined(CONTIKI_TARGET_ZOUL_SPARROW)
+/* Use UART by default on Zoul platforms unless USB_DEBUG_PORT is set */
+#ifndef WITH_UART
+#if defined(ZOUL_SPARROW_USB_DEBUG_PORT) || defined(SLIP_ARCH_CONF_USB)
+#define WITH_UART 0
+#else
+#define WITH_UART 1
+#endif /* ZOUL_SPARROW_USB_DEBUG_PORT */
+#endif /* WITH_UART */
+
+#endif /* CONTIKI_TARGET_ZOUL_SPARROW */
+
+
+/*
+ * Custom configuration for CC2538 based platforms
+ */
+#ifdef PLATFORM_HAS_CC2538
 
 /* LPM needs to be enabled for select the 32MHz clock */
 #define LPM_CONF_ENABLE          1
-
 #define SERIAL_BAUDRATE     460800
-
-#endif /* CONTIKI_TARGET_FELICIA || CONTIKI_TARGET_ZOUL_SPARROW */
-
-#if defined(CONTIKI_TARGET_FELICIA) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT))
-#ifndef SLIP_ARCH_CONF_USB
 
 #ifndef WITH_UART
 #define WITH_UART 0
@@ -58,16 +70,15 @@
 #define DBG_CONF_USB             1 /* command output uses debug output */
 #define SLIP_ARCH_CONF_USB       1
 
-#endif /* WITH_UART */
-
-#endif /* SLIP_ARCH_CONF_USB */
-
 #define USB_CONF_WRITE_TIMEOUT   0 /* no USB write timeout in serial radio */
 
 /* Use different product description for USB */
 #define USB_SERIAL_GET_PRODUCT_DESCRIPTION serial_radio_get_product_description
 
-#endif /* defined(CONTIKI_TARGET_FELICIA) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT)) */
+#endif /* WITH_UART */
+
+#endif /* PLATFORM_HAS_CC2538 */
+
 
 /* Get rid of address filter in NULLRDC - assume radio filter */
 #define NULLRDC_CONF_ADDRESS_FILTER      0

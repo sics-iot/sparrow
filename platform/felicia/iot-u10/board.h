@@ -149,11 +149,11 @@ uint32_t PLATFORM_GET_TEMPERATURE(void);
  */
 #define USER_BUTTON_PORT              GPIO_D_NUM
 #define USER_BUTTON_PIN               2
-#define USER_BUTTON_VECTOR            NVIC_INT_GPIO_PORT_D
+#define USER_BUTTON_VECTOR            GPIO_D_IRQn
 
 #define SLIDE_SWITCH_PORT             GPIO_B_NUM
 #define SLIDE_SWITCH_PIN              4
-#define SLIDE_SWITCH_VECTOR           NVIC_INT_GPIO_PORT_B
+#define SLIDE_SWITCH_VECTOR           GPIO_B_IRQn
 
 /**
  * \name I2C pin configuration

@@ -38,11 +38,11 @@
 #include "contiki-conf.h"
 #include "sys/energest.h"
 #include "sys/process.h"
+#include "sys/rtimer.h"
 #include "dev/sys-ctrl.h"
-#include "dev/scb.h"
 #include "dev/rfcore-xreg.h"
-#include "rtimer-arch.h"
 #include "lpm.h"
+#include "cc2538_cm3.h"
 #include "reg.h"
 
 #include <stdbool.h>
@@ -92,7 +92,7 @@ rtimer_clock_t lpm_stats[3];
  */
 static rtimer_clock_t sleep_enter_time;
 
-void clock_adjust(void);
+void clock_adjust(rtimer_clock_t ticks);
 /*---------------------------------------------------------------------------*/
 /* Stores the currently specified MAX allowed PM */
 static uint8_t max_pm;
@@ -134,9 +134,7 @@ enter_pm0(void)
   ENERGEST_IRQ_RESTORE(irq_energest);
 
   /* Remember the current time so we can keep stats when we wake up */
-  if(LPM_CONF_STATS) {
-    sleep_enter_time = RTIMER_NOW();
-  }
+  sleep_enter_time = RTIMER_NOW();
 
   assert_wfi();
 
@@ -225,7 +223,7 @@ lpm_exit()
 
   /* Adjust the system clock, since it was not counting while we were sleeping
    * We need to convert sleep duration from rtimer ticks to clock ticks */
-  clock_adjust();
+  clock_adjust(RTIMER_NOW() - sleep_enter_time);
 
   /* Restore system clock to the 32 MHz XOSC */
   select_32_mhz_xosc();
@@ -312,9 +310,7 @@ lpm_enter()
   ENERGEST_SWITCH(ENERGEST_TYPE_CPU, ENERGEST_TYPE_LPM);
 
   /* Remember the current time so we can keep stats when we wake up */
-  if(LPM_CONF_STATS) {
-    sleep_enter_time = RTIMER_NOW();
-  }
+  sleep_enter_time = RTIMER_NOW();
 
   /*
    * Last chance to abort entering Deep Sleep.
@@ -379,7 +375,7 @@ lpm_init()
    * By default, we will enter PM0 unless lpm_enter() decides otherwise
    */
   REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM0;
-  REG(SCB_SYSCTRL) |= SCB_SYSCTRL_SLEEPDEEP;
+  SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 
   max_pm = LPM_CONF_MAX_PM;
 
