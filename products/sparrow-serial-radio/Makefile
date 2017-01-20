@@ -34,6 +34,15 @@ ifeq ($(TARGET),zoul-sparrow)
   endif
 endif
 
+ifeq ($(BOARD),cc2538em)
+  ifdef MAKE_WITH_UART
+    CFLAGS += -DWITH_UART=1
+  else ifdef MAKE_WITH_UART_FLOW_CONTROL
+    CFLAGS += -DWITH_UART=1
+    CFLAGS += -DWITH_UART_FLOW_CONTROL=1
+  endif
+endif
+
 #linker optimizations
 SMALL=1
 

@@ -101,7 +101,7 @@ def send_upgrade(segment, size, instance, host, port):
     t2 = tlvlib.create_set_vector_tlv(instance, tlvlib.VARIABLE_FLASH,
                                       tlvlib.SIZE32, segment[0] * size / 4, len(segment[1]) / 4, segment[1])
     try:
-        enc,tlvs = tlvlib.send_tlv([t1,t2], host, port)
+        enc,tlvs = tlvlib.send_tlv([t1,t2], host, port, 1.5)
     except socket.timeout:
         return False
     #tlvlib.print_tlvs(tlvs)
@@ -119,7 +119,10 @@ def create_segments(data, size):
 def do_erase(instance, host, port):
     # create Erase TLV
     t1 = tlvlib.create_set_tlv32(instance, tlvlib.VARIABLE_WRITE_CONTROL, tlvlib.FLASH_WRITE_CONTROL_ERASE)
-    enc,tlvs = tlvlib.send_tlv(t1, host, port)
+    try:
+        enc,tlvs = tlvlib.send_tlv(t1, host, port, 2.5)
+    except socket.timeout:
+        return False
     return tlvs[0].error == 0
 
 def do_reboot(host, port, image=0):
@@ -203,7 +206,11 @@ if not args.s:
     file = open(firmware, 'r')
     zip = zipfile.ZipFile(file)
 
-d = tlvlib.discovery(host, port)
+try:
+    d = tlvlib.discovery(host, port)
+except socket.timeout:
+    print "Failed to discover the device. Probably the device is offline or sleeping."
+    exit()
 producttype = "%016x"%d[0][1]
 print "---- Upgrading ----"
 print "Product label:", d[0][0]," type:",producttype,"instances:", len(d[1])
@@ -268,9 +275,15 @@ data = zip.read(zfile)
 print "Upgrading instance", upgrade, label, "with image", zfile.filename," (" + str(len(data)) + " bytes)"
 if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
     print "Erasing image",upgrade
-    if not do_erase(upgrade, host, port):
-        print "ERROR: failed to erase image"
-        exit()
+    i = 5
+    while i >= 0:
+         if not do_erase(upgrade, host, port):
+             i = i - 1
+             if i == 0:
+                 print "ERROR: failed to erase image"
+                 exit()
+         else:
+             break
 
 if not do_upgrade(data, upgrade, host, port, block_size):
     print "ERROR: failed to write firmware file"

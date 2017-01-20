@@ -65,6 +65,14 @@
 #define DBG_CONF_USB             0 /* command output uses debug output */
 #define SLIP_ARCH_CONF_USB       0
 
+#if WITH_UART_FLOW_CONTROL
+#define SERIAL_LINE_CONF_UART       1 /**< UART to use with serial line */
+#define SLIP_ARCH_CONF_UART         1 /**< UART to use with SLIP */
+#define DBG_CONF_UART               1 /**< UART to use for debugging */
+#define UART1_CONF_UART             1 /**< UART to use for examples relying on
+                                           the uart1_* API */
+#endif
+
 #else /* WITH_UART */
 
 #define DBG_CONF_USB             1 /* command output uses debug output */
