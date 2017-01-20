@@ -148,7 +148,7 @@ def do_upgrade(data, instance, host, port, block_size, retry_passes=50):
     i = 0
     while i < retry_passes and segments > 0:
         i += 1
-        print "Writing", i, len(to_upgrade.keys()), "left to go.", "\b" * 35,
+        print "Writing", i, segments, "left to go.", "\b" * 35,
         sys.stdout.flush()
         for udata in to_upgrade:
             if to_upgrade[udata] is not None:
