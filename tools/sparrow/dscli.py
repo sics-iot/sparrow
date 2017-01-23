@@ -67,8 +67,8 @@ def cli_loop():
                 if devices:
                     for dev in devices:
                         print dev.info()
-                    else:
-                        print "No devices to list"
+                else:
+                    print "No devices to list"
             elif cmd == "exit" or cmd == "quit" or cmd == "q" or cmd == "bye":
                 deviceServer.stop()
                 running = False
