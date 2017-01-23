@@ -841,14 +841,17 @@ class DeviceServer:
                 elif tlv.variable == tlvlib.VARIABLE_UNIT_BOOT_TIMER:
                     pass
                 elif tlv.variable == tlvlib.VARIABLE_TIME_SINCE_LAST_GOOD_UC_RX:
-                    if device and last_seen - time.time() > 55:
+                    if device is not None and last_seen - time.time() > 55:
                         ping_device = True
                 elif tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
                     dev_watchdog = tlv.int_value
 
         if not device:
             if dev_watchdog is not None or self.grab_all == 0:
-                if not self.is_device_acceptable(host, dev_type):
+                if dev_type == tlvlib.INSTANCE_BORDER_ROUTER:
+                    # Do not try to grab the border router
+                    pass
+                elif not self.is_device_acceptable(host, dev_type):
                     self.log.debug("[%s] IGNORING device of type 0x%016x that could be taken over", host, dev_type)
                 else:
                     # Unknown device - do a grab attempt
