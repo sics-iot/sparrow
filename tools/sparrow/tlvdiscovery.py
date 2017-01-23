@@ -261,7 +261,7 @@ for data in d[1]:
             print "\tDistance:",tlvs[1].int_value,"mm\tStatus:",tlvs[0].int_value
     elif data[0] == tlvlib.INSTANCE_PTCTEMP:
         t = tlvlib.create_get_tlv32(i, 0x100)
-        enc,tlvs = tlvlib.send_tlv(t, host)
+        enc,tlvs = tlvlib.send_tlv(t, host, timeout=1.0)
         if tlvs[0].error == 0:
             print "\tTemperature:",((tlvs[0].int_value - 273150) / 1000.0),"(C)"
     elif data[0] == tlvlib.INSTANCE_POWER_SINGLE:
@@ -275,7 +275,7 @@ for data in d[1]:
             t3 = tlvlib.create_get_vector_tlv(i, 0x111, tlvlib.SIZE64, 0, 4)
             t4 = tlvlib.create_get_tlv32(i, 0x105)
             t5 = tlvlib.create_get_tlv32(i, 0x107)
-            enc,tlvs = tlvlib.send_tlv([t1,t2,t3,t4,t5], host)
+            enc,tlvs = tlvlib.send_tlv([t1,t2,t3,t4,t5], host, timeout=1.0)
             print "\tPower voltage:",(tlvs[3].int_value / 1000.0),"V\tTemperature:",((tlvs[4].int_value - 273150)/1000.0),"C"
             for r in range(0, 4):
                 n = tlvlib.convert_string(tlvs[0].data[r * 32:(r + 1) * 32])
@@ -353,6 +353,42 @@ for data in d[1]:
                 myrank, = struct.unpack("!H", tlvs[0].value[15:17])
                 print "\tRPL Rank:", myrank," Churn:",churn," Free neighbors:",free_neighbors," Free routes:",free_routes
                 print "\tDefault route:","0x" + binascii.hexlify(parent)," link-metric:",rtmetric," rank:",rank
+    elif data[0] == tlvlib.INSTANCE_LIGHT_GENERIC:
+        t1 = tlvlib.create_get_tlv32(i, 0x100)
+        enc, tlvs = tlvlib.send_tlv(t1, host)
+        if tlvs[0].error == 0:
+            status = tlvlib.get_sensor_data_status(tlvs[0].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[0].int_value)
+            print "\tAmbient light:",round(value / 1000.0, 2),"Lux (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+
+    elif data[0] == tlvlib.INSTANCE_AMBIENT_RGB_GENERIC:
+        if verbose:
+            t0 = tlvlib.create_get_tlv32(i, 0x100)
+            t1 = tlvlib.create_get_vector_tlv(i, 0x105, tlvlib.SIZE32, 0, 4)
+            enc, tlvs = tlvlib.send_tlv([t0,t1], host)
+            if tlvs[0].error == 0:
+                print "\tAmbient Light:",tlvs[0].int_value
+            if tlvs[1].error == 0:
+                red,green,blue,ir, = struct.unpack("!LLLL", tlvs[1].data)
+                print "\t           IR:",ir
+                print "\t          Red:",red
+                print "\t        Green:",green
+                print "\t         Blue:",blue
+    elif data[0] == tlvlib.INSTANCE_SOUND_GENERIC:
+        t1 = tlvlib.create_get_tlv32(i, 0x100)
+        t2 = tlvlib.create_get_tlv32(i, 0x101)
+        t3 = tlvlib.create_get_tlv32(i, 0x102)
+        enc, tlvs = tlvlib.send_tlv([t1,t2,t3], host)
+        if tlvs[0].error == 0:
+            status = tlvlib.get_sensor_data_status(tlvs[0].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[0].int_value)
+            print "\tSound pressure:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+            status = tlvlib.get_sensor_data_status(tlvs[1].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[1].int_value)
+            print "\t           min:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+            status = tlvlib.get_sensor_data_status(tlvs[2].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[2].int_value)
+            print "\t           max:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
     elif data[0] == tlvlib.INSTANCE_BORDER_ROUTER_MANAGEMENT:
         t1 = tlvlib.create_get_tlv256(i, 0x100)
         t2 = tlvlib.create_get_tlv256(i, 0x101)

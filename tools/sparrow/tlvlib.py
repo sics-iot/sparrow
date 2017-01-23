@@ -93,6 +93,7 @@ INSTANCE_RANGING_GENERIC          = 0x0090DA030201001CL
 INSTANCE_BUTTON_GENERIC           = 0x0090DA030201001DL
 INSTANCE_LEDS_GENERIC             = 0x0090DA030201001EL
 INSTANCE_LIGHT_GENERIC            = 0x0090da0302010020L
+INSTANCE_AMBIENT_RGB_GENERIC      = 0x0090da0302010023L
 INSTANCE_SOUND_GENERIC            = 0x0090da0302010021L
 INSTANCE_IMAGE                    = 0x0090da0303010010L
 INSTANCE_SHT20                    = 0x0090DA0303010011L
@@ -352,9 +353,9 @@ class EncapHeader:
             self.data = bindata[4:12]
             size = size + 8
 
-        # LENOPT => 4 bytes data // Shuold also check CRC option!!!
+        # LENOPT => 4 bytes data // Should also check CRC option!!!
         if self.fpmode == ENC_FP_LENOPT:
-            self.option, self.length= struct.unpack_from("!HH", bindata, 4)
+            self.option, self.length = struct.unpack_from("!HH", bindata, 4)
             size = size + 4
 
         if self.payload_type == ENC_PAYLOAD_SERIAL:
@@ -524,6 +525,7 @@ def parse_tlv(data):
     tlv.unpack(data)
     return tlv
 
+# create encap packet with TLV payload
 def create_encap(tlv):
     e = EncapHeader()
     e.version = 1
