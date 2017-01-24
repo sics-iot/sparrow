@@ -190,7 +190,7 @@ test_callback(void *ptr)
 }
 #endif /* HAVE_SERIAL_RADIO_UART */
 /*---------------------------------------------------------------------------*/
-#if defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && !defined(ZOUL_SPARROW_USB_DEBUG_PORT))
+#if defined(CONTIKI_TARGET_FELICIA) || (PLATFORM_WITH_DUAL_MODE) || (defined(CONTIKI_TARGET_ZOUL_SPARROW) && defined(WITH_USB_PORT))
 /* Use different product name for USB on platform Felicia */
 struct product {
   uint8_t size;
