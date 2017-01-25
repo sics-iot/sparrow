@@ -29,8 +29,8 @@ ifeq ($(TARGET),native-sparrow)
 endif
 
 ifeq ($(TARGET),zoul-sparrow)
-  ifdef USE_DEBUG_PORT
-    CFLAGS += -DZOUL_SPARROW_USB_DEBUG_PORT
+  ifdef MAKE_WITH_USB_PORT
+    CFLAGS += -DWITH_USB_PORT=1
   endif
 endif
 

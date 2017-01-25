@@ -35,13 +35,11 @@
  */
 #ifdef CONTIKI_TARGET_ZOUL_SPARROW
 
-/* Use UART by default on Zoul platforms unless USB_DEBUG_PORT is set */
+/* Use UART by default on Zoul platforms unless WITH_USB_PORT is set */
 #ifndef WITH_UART
-#if defined(ZOUL_SPARROW_USB_DEBUG_PORT) || defined(SLIP_ARCH_CONF_USB)
-#define WITH_UART 0
-#else
+#if !defined(WITH_USB_PORT) && !defined(SLIP_ARCH_CONF_USB)
 #define WITH_UART 1
-#endif /* ZOUL_SPARROW_USB_DEBUG_PORT */
+#endif /* !defined(WITH_USB_PORT) && !defined(SLIP_ARCH_CONF_USB) */
 #endif /* WITH_UART */
 
 #endif /* CONTIKI_TARGET_ZOUL_SPARROW */
