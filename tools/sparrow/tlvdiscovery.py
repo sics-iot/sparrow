@@ -59,9 +59,9 @@ print "Booted at:",tlvlib.get_start_ieee64_time_as_string(d[0][2]),"-",tlvlib.co
 if verbose and instance <= 0:
     t1 = tlvlib.create_get_tlv128(0, tlvlib.VARIABLE_SW_REVISION)
     t2 = tlvlib.create_get_tlv32(0, tlvlib.VARIABLE_BOOTLOADER_VERSION)
-    t3 = tlvlib.create_get_tlv32(0, tlvlib.VARIABLE_CHASSIS_CAPABILITIES)
+    t3 = tlvlib.create_get_tlv64(0, tlvlib.VARIABLE_CHASSIS_CAPABILITIES)
     t4 = tlvlib.create_get_tlv32(0, tlvlib.VARIABLE_RESET_CAUSE)
-    enc, tlvs = tlvlib.send_tlv([t1,t2,t3,t4], host)
+    enc, tlvs = tlvlib.send_tlv([t1,t2,t3,t4], host, show_error=False)
     revision = ""
     if tlvs[3].error == 0:
         print "Last reset cause:", tlvlib.get_reset_cause_as_string(tlvs[3].int_value)
@@ -70,11 +70,11 @@ if verbose and instance <= 0:
     if tlvs[1].error == 0:
         revision += "\tBootloader: " + str(tlvs[1].int_value)
     if tlvs[2].error == 0:
-        revision += " %016x"%tlvs[2].int_value
+        revision += "  Cap.: %016x"%tlvs[2].int_value
     if revision != "":
         print revision
 
-if verbose and instance <= 0:
+if verbose and instance == 0:
     t0 = tlvlib.create_get_tlv32(0, tlvlib.VARIABLE_LOCATION_ID)
     enc,tlvs = tlvlib.send_tlv(t0, host, show_error=False)
     if tlvs[0].error == 0:
@@ -136,12 +136,24 @@ for data in d[1]:
         t1 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_TEMPERATURE)
         t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_HUMIDITY)
         enc, tlvs = tlvlib.send_tlv([t1,t2], host)
-        temperature = tlvlib.convert_sht20_temperature(tlvs[0].int_value)
-        raw_humidity = tlvs[1].int_value
-        humidity = tlvlib.convert_sht20_humidity(raw_humidity)
-        humidityI = tlvlib.convert_sht20_humidity_over_ice(raw_humidity, temperature)
-        print "\tTemperature:",round(temperature, 3),"(C)"
-        print "\tHumidity   : " + str(round(humidity, 3)) + "%  Humidity (I): " + str(round(humidityI,3)) + "%"
+        temperature = 20
+        if tlvs[0].error == 0:
+            v = tlvs[0].int_value
+            d = [(v >> 16) & 0xff,(v >> 8) & 0xff]
+            if tlvlib.calc_sht20_checksum(d) == v & 0xff:
+                temperature = tlvlib.convert_sht20_temperature(v)
+                print "\tTemperature:",round(temperature, 3),"(C)"
+            else:
+                print "\tTemperature: SHT20 CHECKSUM ERROR"
+        if tlvs[1].error == 0:
+            v = tlvs[1].int_value
+            d = [(v >> 16) & 0xff,(v >> 8) & 0xff]
+            if tlvlib.calc_sht20_checksum(d) == v & 0xff:
+                humidity = tlvlib.convert_sht20_humidity(v)
+                humidityI = tlvlib.convert_sht20_humidity_over_ice(v, temperature)
+                print "\tHumidity   : " + str(round(humidity, 3)) + "%  Humidity (I): " + str(round(humidityI,3)) + "%"
+            else:
+                print "\tHumidity: SHT20 CHECKSUM ERROR"
     elif data[0] == tlvlib.INSTANCE_TEMPHUM_GENERIC:
         t1 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_TEMPERATURE)
         t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_HUMIDITY)
@@ -184,12 +196,15 @@ for data in d[1]:
         else:
             print "\tCO2: no data"
     elif data[0] == tlvlib.INSTANCE_RADIO:
-        t1 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_PAN_ID)
-        t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_CHANNEL)
-        t3 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_MODE)
+        t0 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_PAN_ID)
+        t1 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_CHANNEL)
+        t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_MODE)
+        t3 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_RADIO_RESET_CAUSE)
 
-        enc, tlvs = tlvlib.send_tlv([t1,t2,t3], host)
+        enc, tlvs = tlvlib.send_tlv([t0,t1,t2,t3], host)
         print "\tPan id:",tlvs[0].int_value,"(0x%04x)"%tlvs[0].int_value," Channel:",tlvs[1].int_value,"  Mode:",tlvs[2].int_value
+        if tlvs[3].error == 0:
+            print "\tRadio reset cause:", tlvlib.get_reset_cause_as_string(tlvs[3].int_value)
 
     elif data[0] == tlvlib.INSTANCE_ROUTER:
         t1 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_TABLE_LENGTH)
@@ -242,25 +257,26 @@ for data in d[1]:
         t1 = tlvlib.create_get_tlv32(i, 0x101)
         t2 = tlvlib.create_get_tlv32(i, 0x102)
         enc,tlvs = tlvlib.send_tlv([t1,t2], host)
-        print "\tDistance:",tlvs[1].int_value,"mm\tStatus:",tlvs[0].int_value
+        if tlvs[1].error == 0:
+            print "\tDistance:",tlvs[1].int_value,"mm\tStatus:",tlvs[0].int_value
     elif data[0] == tlvlib.INSTANCE_PTCTEMP:
         t = tlvlib.create_get_tlv32(i, 0x100)
-        enc,tlvs = tlvlib.send_tlv(t, host)
+        enc,tlvs = tlvlib.send_tlv(t, host, timeout=1.0)
         if tlvs[0].error == 0:
             print "\tTemperature:",((tlvs[0].int_value - 273150) / 1000.0),"(C)"
     elif data[0] == tlvlib.INSTANCE_POWER_SINGLE:
         t1 = tlvlib.create_get_tlv32(i, 0x100)
         t2 = tlvlib.create_get_tlv256(i, 0x102)
-        t3 = tlvlib.create_get_tlv32(i, 0x105)
-        t4 = tlvlib.create_get_tlv32(i, 0x107)
-        enc,tlvs = tlvlib.send_tlv([t1,t2,t3,t4], host)
+        enc,tlvs = tlvlib.send_tlv([t1,t2], host)
         print "\tPower source: ",tlvlib.convert_string(tlvs[1].value),"(%d"%tlvs[0].int_value,"power sources)"
-        print "\tPower voltage:",(tlvs[2].int_value / 1000.0),"V\tTemperature:",((tlvs[3].int_value - 273150)/1000.0),"C"
         if verbose:
             t1 = tlvlib.create_get_vector_tlv(i, 0x110, tlvlib.SIZE256, 0, 4)
             t2 = tlvlib.create_get_vector_tlv(i, 0x112, tlvlib.SIZE64, 0, 4)
             t3 = tlvlib.create_get_vector_tlv(i, 0x111, tlvlib.SIZE64, 0, 4)
-            enc,tlvs = tlvlib.send_tlv([t1,t2,t3], host)
+            t4 = tlvlib.create_get_tlv32(i, 0x105)
+            t5 = tlvlib.create_get_tlv32(i, 0x107)
+            enc,tlvs = tlvlib.send_tlv([t1,t2,t3,t4,t5], host, timeout=1.0)
+            print "\tPower voltage:",(tlvs[3].int_value / 1000.0),"V\tTemperature:",((tlvs[4].int_value - 273150)/1000.0),"C"
             for r in range(0, 4):
                 n = tlvlib.convert_string(tlvs[0].data[r * 32:(r + 1) * 32])
                 t, = struct.unpack("!q", tlvs[1].data[r * 8:(r + 1) * 8])
@@ -337,6 +353,42 @@ for data in d[1]:
                 myrank, = struct.unpack("!H", tlvs[0].value[15:17])
                 print "\tRPL Rank:", myrank," Churn:",churn," Free neighbors:",free_neighbors," Free routes:",free_routes
                 print "\tDefault route:","0x" + binascii.hexlify(parent)," link-metric:",rtmetric," rank:",rank
+    elif data[0] == tlvlib.INSTANCE_LIGHT_GENERIC:
+        t1 = tlvlib.create_get_tlv32(i, 0x100)
+        enc, tlvs = tlvlib.send_tlv(t1, host)
+        if tlvs[0].error == 0:
+            status = tlvlib.get_sensor_data_status(tlvs[0].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[0].int_value)
+            print "\tAmbient light:",round(value / 1000.0, 2),"Lux (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+
+    elif data[0] == tlvlib.INSTANCE_AMBIENT_RGB_GENERIC:
+        if verbose:
+            t0 = tlvlib.create_get_tlv32(i, 0x100)
+            t1 = tlvlib.create_get_vector_tlv(i, 0x105, tlvlib.SIZE32, 0, 4)
+            enc, tlvs = tlvlib.send_tlv([t0,t1], host)
+            if tlvs[0].error == 0:
+                print "\tAmbient Light:",tlvs[0].int_value
+            if tlvs[1].error == 0:
+                red,green,blue,ir, = struct.unpack("!LLLL", tlvs[1].data)
+                print "\t           IR:",ir
+                print "\t          Red:",red
+                print "\t        Green:",green
+                print "\t         Blue:",blue
+    elif data[0] == tlvlib.INSTANCE_SOUND_GENERIC:
+        t1 = tlvlib.create_get_tlv32(i, 0x100)
+        t2 = tlvlib.create_get_tlv32(i, 0x101)
+        t3 = tlvlib.create_get_tlv32(i, 0x102)
+        enc, tlvs = tlvlib.send_tlv([t1,t2,t3], host)
+        if tlvs[0].error == 0:
+            status = tlvlib.get_sensor_data_status(tlvs[0].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[0].int_value)
+            print "\tSound pressure:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+            status = tlvlib.get_sensor_data_status(tlvs[1].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[1].int_value)
+            print "\t           min:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
+            status = tlvlib.get_sensor_data_status(tlvs[2].int_value)
+            value = tlvlib.get_sensor_data_value(tlvs[2].int_value)
+            print "\t           max:",round(value / 100.0, 2),"dBA (" + tlvlib.get_sensor_data_status_as_string(status) + ")"
     elif data[0] == tlvlib.INSTANCE_BORDER_ROUTER_MANAGEMENT:
         t1 = tlvlib.create_get_tlv256(i, 0x100)
         t2 = tlvlib.create_get_tlv256(i, 0x101)

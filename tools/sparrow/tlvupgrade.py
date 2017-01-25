@@ -139,27 +139,22 @@ def do_reboot(host, port, image=0):
     return True
 
 def do_upgrade(data, instance, host, port, block_size, retry_passes=50):
-    new_upgrade = {}
     to_upgrade = create_segments(data, block_size)
 
     print "Got", len(to_upgrade.keys()), "segments."
-    segments = len(to_upgrade.keys())
 
     i = 0
-    while i < retry_passes and segments > 0:
+    while i < retry_passes and len(to_upgrade.keys()) > 0:
         i += 1
         print "Writing", i, segments, "left to go.", "\b" * 35,
         sys.stdout.flush()
+        new_upgrade = {}
         for udata in to_upgrade:
-            if to_upgrade[udata] is not None:
-                if not send_upgrade(to_upgrade[udata], block_size, instance, host, port):
-                    new_upgrade[udata] = to_upgrade[udata]
-		else:
-		    segments = segments - 1
-		    to_upgrade[udata] = None
+            if not send_upgrade(to_upgrade[udata], block_size, instance, host, port):
+                new_upgrade[udata] = to_upgrade[udata]
         to_upgrade = new_upgrade
     print
-    return segments == 0
+    return len(to_upgrade.keys()) == 0
 
 block_size = 512
 port = tlvlib.UDP_PORT

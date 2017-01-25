@@ -34,24 +34,46 @@
 #
 
 import tlvlib, nstatslib, sys, struct, binascii, socket, time, threading
-import subprocess, re
+import subprocess, re, dscli, logging
 
 EVENT_DISCOVERY = "discovery"
 EVENT_BUTTON = "button"
+EVENT_MOTION = "motion"
 EVENT_NSTATS_RPL = "nstats-rpl"
 
+class EndPoint:
+    sock = None
+    host = None
+    port = None
+
+    def __init__(self, sock, host, port=tlvlib.UDP_PORT):
+        self.sock = sock
+        self.host = host
+        self.port = port
+
+    def sendto(self, data):
+        self.sock.sendto(data, (self.host, self.port))
+
+    def __str__(self):
+        return "EndPoint(" + `self.sock` + "," + `self.host` + "," + `self.port` + ")"
+
 class Device:
+    endpoint = None
     product_type = None
     device_info = None
     label = 'unknown'
     boot_time = 0
     address = ""
+    log = None
 
     button_instance = None
+    button_counter = None
     leds_instance = None
     temperature_instance = None
     nstats_instance = None
     sleep_instance = None
+    motion_instance = None
+    motion_counter = None
 
     nstats_rpl = None
 
@@ -65,18 +87,21 @@ class Device:
 
     _outgoing = None
     _outgoing_callbacks = None
+    _pending_outgoing = False
 
-    def __init__(self, device_address, device_server):
+    def __init__(self, device_address, device_endpoint, device_server):
+        self.endpoint = device_endpoint
         self.address = device_address
         self._device_server = device_server
         self.last_seen = 0
         self.last_ping = 0
+        self.log = logging.getLogger(device_address)
 
     def is_discovered(self):
         return self.product_type is not None
 
     def is_sleepy_device(self):
-        return _outgoing is not None
+        return self._outgoing is not None
 
     def set_sleepy_device(self):
         if self._outgoing is None:
@@ -91,22 +116,32 @@ class Device:
                 i += 1
         return None
 
-    def send_tlv(self, tlv, callback = None):
+    def has_pending_tlv(self, tlv):
         if self._outgoing is None:
-            if callback:
-                return self._send_immediately(tlv, [callback])
-            else:
-                return self._send_immediately(tlv)
-
+            return False
         if type(tlv) == list:
-            self._outgoing += tlv
+            for t in tlv:
+                if self.has_pending_tlv(t):
+                    return True
         else:
-            self._outgoing.append(tlv)
+            for t in self._outgoing:
+                if t.instance == tlv.instance and t.variable == tlv.variable and t.op == tlv.op and t.element_size == tlv.element_size and t.length == tlv.length:
+                    return True
+        return False
+
+    def send_tlv(self, tlv, callback = None):
         if callback:
             if self._outgoing_callbacks:
                 self._outgoing_callbacks.append(callback)
             else:
                 self._outgoing_callbacks = [callback]
+        if self._outgoing is None:
+            return self._send_immediately(tlv)
+
+        if type(tlv) == list:
+            self._outgoing += tlv
+        else:
+            self._outgoing.append(tlv)
         return True
 
     def get_pending_packet_count(self):
@@ -116,65 +151,100 @@ class Device:
 
     def _flush(self):
         if self._outgoing is not None and len(self._outgoing) > 0:
-            print "Flushing",len(self._outgoing),"TLVs to",self.address,"at",time.time()
+            self.log.debug("FLUSH %s",tlvlib.get_tlv_short_info(self._outgoing))
 
             tlvs = self._outgoing
             self._outgoing = []
 
-            callbacks = None
-            if self._outgoing_callbacks:
-                callbacks = self._outgoing_callbacks
-                self._outgoing_callbacks = None
+            self._send_immediately(tlvs)
 
-            self._send_immediately(tlvs, callbacks)
-
-    def _send_immediately(self, tlv, callbacks = None):
-        try:
-            enc, tlvs = tlvlib.send_tlv(tlv, self.address)
-            self._process_tlvs(tlvs)
-            if callbacks:
-                for callback in callbacks[:]:
-                    try:
-                        callback(self, tlvs)
-                    except Exception as e:
-                        print "*** TLV callback error:", e
-            return True
-        except socket.timeout:
-            print "Failed to send to",self.address,"at",time.time(),"(time out)"
-            return False
-        except IOError as e:
-            print "Failed to send to", self.address, e
-            return False
+    def _send_immediately(self, tlv):
+        self._pending_outgoing = True
+        data = tlvlib.create_encap(tlv)
+        self.endpoint.sendto(data)
+        return True
 
     def _process_tlvs(self, tlvs):
         self.last_seen = time.time();
         for tlv in tlvs:
             if tlv.error != 0:
-                print "Received error:"
+                self.log.error("Received error:")
                 tlvlib.print_tlv(tlv)
 
                 if tlv.instance == 0:
                     if tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
-                        print "Failed to update WDT for",self.address,"- trying to grab!"
-                        self._device_server.grab_device(self.address)
+                        self.log.warning("Failed to update WDT - trying to grab!")
+                        self._device_server.grab_device(self)
+            elif tlv.op & 0x7f == tlvlib.TLV_GET_RESPONSE:
+                self._process_get_response(tlv)
+            elif tlv.op & 0x7f == tlvlib.TLV_EVENT_RESPONSE:
+                self._process_get_response(tlv)
 
-            elif tlv.instance == 0:
-                if tlv.variable == tlvlib.VARIABLE_UNIT_BOOT_TIMER:
-                    # Update the boot time estimation
-                    seconds,ns = tlvlib.convert_ieee64_time(tlv.int_value)
-                    last_boot_time = self.boot_time
-                    self.boot_time = self.last_seen - seconds
-                    # Assume reboot if the boot time backs at least 30 seconds
-                    if last_boot_time - self.boot_time > 30:
-                        print "Node reboot detected!", self.address
-                elif tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
-                    print "WDT updated in", self.address
-                    self.next_update = self.last_seen + self._device_server.watchdog_time - self._device_server.guard_time
+            # TODO handle other types
+        if self._pending_outgoing:
+            self._pending_outgoing = False
+            if self._outgoing_callbacks:
+                callbacks = self._outgoing_callbacks
+                self._outgoing_callbacks = None
+                for callback in callbacks[:]:
+                    try:
+                        callback(self, tlvs)
+                    except Exception as e:
+                        self.log.error("*** TLV callback error: %s", str(e))
+
+
+    def _process_get_response(self, tlv):
+        if tlv.instance == 0:
+            if tlv.variable == tlvlib.VARIABLE_UNIT_BOOT_TIMER:
+                # Update the boot time estimation
+                seconds,ns = tlvlib.convert_ieee64_time(tlv.int_value)
+                last_boot_time = self.boot_time
+                self.boot_time = self.last_seen - seconds
+                # Assume reboot if the boot time backs at least 30 seconds
+                if last_boot_time - self.boot_time > 30:
+                    self.log.info("REBOOT DETECTED!")
+            elif tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
+                if self.next_update < 0:
+                    # Ignore watchdog in this device
+                    pass
+                elif hasattr(tlv, 'int_value') and tlv.int_value > 0:
+                    self.log.debug("WDT updated! %d seconds remaining",
+                                   tlv.int_value)
+                    self.next_update = self.last_seen + tlv.int_value - self._device_server.guard_time
                     self.update_tries = 0
+                else:
+                    # Need to refresh watchdog
+                    t1 = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG,
+                                                 self._device_server.watchdog_time)
+                    self.send_tlv(t1)
 
-            elif self.nstats_instance and tlv.instance == self.nstats_instance:
-                if tlv.variable == tlvlib.VARIABLE_NSTATS_DATA:
-                    self._handle_nstats(tlv)
+            elif tlv.variable == tlvlib.VARIABLE_SLEEP_DEFAULT_AWAKE_TIME:
+                # This node is a sleepy node
+                self.set_sleepy_device()
+
+        elif self.button_instance and tlv.instance == self.button_instance:
+            if tlv.variable == tlvlib.VARIABLE_GPIO_TRIGGER_COUNTER:
+                self.button_counter = tlv.int_value
+            elif tlv.variable == tlvlib.VARIABLE_EVENT_ARRAY and tlv.op == tlvlib.TLV_EVENT_RESPONSE:
+                self.log.info("button pressed - %d times",self.button_counter)
+                # Rearm the button
+                self.arm_device(self.button_instance)
+
+                de = DeviceEvent(self, EVENT_BUTTON, self.button_counter)
+                self._device_server.send_event(de)
+        elif self.motion_instance and tlv.instance == self.motion_instance:
+            if tlv.variable == 0x100:
+                self.motion_counter, = struct.unpack("!q", tlv.data[8:16])
+            elif tlv.variable == tlvlib.VARIABLE_EVENT_ARRAY and tlv.op == tlvlib.TLV_EVENT_RESPONSE:
+                self.log.info("MOTION! - %d times",self.motion_counter)
+                # Rearm the button
+                self.arm_device(self.motion_instance)
+
+                de = DeviceEvent(self, EVENT_MOTION, self.motion_counter)
+                self._device_server.send_event(de)
+        elif self.nstats_instance and tlv.instance == self.nstats_instance:
+            if tlv.variable == tlvlib.VARIABLE_NSTATS_DATA:
+                self._handle_nstats(tlv)
 
     def _handle_nstats(self, tlv):
         if tlv.error != 0:
@@ -191,13 +261,13 @@ class Device:
 
     def arm_device(self, instances):
         tlvs = [tlvlib.create_set_vector_tlv(0, tlvlib.VARIABLE_EVENT_ARRAY,
-                                          0, 0, 1,
-                                          struct.pack("!L", 1))]
+                                             0, 0, 1,
+                                             struct.pack("!L", 1))]
         if type(instances) == list:
             for i in instances:
                 t = tlvlib.create_set_vector_tlv(i, tlvlib.VARIABLE_EVENT_ARRAY,
-                                              0, 0, 2,
-                                              struct.pack("!LL", 1, 2))
+                                                 0, 0, 2,
+                                                 struct.pack("!LL", 1, 2))
                 tlvs.append(t)
         else:
             t = tlvlib.create_set_vector_tlv(instances,
@@ -206,10 +276,18 @@ class Device:
             tlvs.append(t)
 
         if not self.send_tlv(tlvs):
-            print "Failed to arm device"
+            log.warning("Failed to arm device!")
+
+    def info(self):
+        info = "  " + self.address + "\t"
+        if self.is_discovered():
+            info += "0x%016x"%self.product_type
+        if self.is_sleepy_device():
+            info += "\t[sleepy]"
+        return info
 
     def __str__(self):
-        return "Device(" + self.address + ")"
+        return "Device(" + self.address + " , " + str(self.is_sleepy_device()) + ")"
 
 # DeviceEvent used for different callbacks
 class DeviceEvent:
@@ -227,7 +305,9 @@ class DeviceEvent:
 
 class DeviceServer:
     _sock = None
+    _sock4 = None
 
+    running = True
     device_server_host = None
     router_host = "localhost"
     router_address = None
@@ -249,27 +329,28 @@ class DeviceServer:
     grab_location = 0
 
     # watchdog time in seconds
-    watchdog_time = 600
+    watchdog_time = 1200
     guard_time = 300
 
     # Try to grab any device it hears
     grab_all = 0
     _accept_nodes = None
 
-    fetch_time = 60
+    fetch_time = 120
 
     def __init__(self):
         self._devices = {}
         self._callbacks = []
+        self.log = logging.getLogger("server")
 
     def send_event(self, device_event):
-        print "Sending event:", device_event
+#        print "Sending event:", device_event
         for callback in self._callbacks[:]:
 #            print "Callback to:", callback
             try:
                 callback(device_event)
             except Exception as e:
-                print "*** callback error:", e
+                self.error("*** callback error: %s", str(e))
 
     def add_event_listener(self, callback):
         self._callbacks.append(callback)
@@ -283,17 +364,23 @@ class DeviceServer:
     # 4-byte location ID
     # 4-byte reserved
     def grab_device(self, target):
+        # Do not try to grab targets that should not be grabbed
+        if hasattr(target, 'next_update') and target.next_update < 0:
+            return False
         IPv6Str = binascii.hexlify(socket.inet_pton(socket.AF_INET6, self.udp_address))
         payloadStr = "000000020000%04x"%self.udp_port + IPv6Str + "%08x"%self.grab_location + "00000000"
         payload = binascii.unhexlify(payloadStr)
-        print "Grabbing device", target, " => ", payloadStr, len(payload)
+        self.log.info("[%s] Grabbing device => %s (%s)", target, payloadStr, str(len(payload)))
         t1 = tlvlib.create_set_tlv(0, tlvlib.VARIABLE_UNIT_CONTROLLER_ADDRESS, 3,
                                  payload)
         t2 = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG,
                                      self.watchdog_time)
         if hasattr(target, 'send_tlv'):
+            if target.has_pending_tlv(t2):
+                self.log.info("[%s] Already has pending grab request", target.address)
+                return False
             if not target.send_tlv([t1,t2]):
-                print "Failed to grab device (time out)"
+                self.log.info("[%s] Failed to grab device (time out)", target.address)
                 return False
             return True
 
@@ -301,11 +388,11 @@ class DeviceServer:
             tlvlib.send_tlv([t1,t2], target)
             return True
         except socket.timeout:
-            print "Failed to grab device (time out)"
+            self.log.warning("[%s] Failed to grab device (time out)", str(target))
             return False
 
     def set_location(self, address, location):
-        print "Setting location on", address, " => ", location
+        self.log.debug("[%s] Setting location to %d", location)
         t = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_LOCATION_ID, location)
         enc,tlvs = tlvlib.send_tlv(t, address)
         return tlvs
@@ -316,7 +403,7 @@ class DeviceServer:
         dev._discovery_lock = True
         dev.discovery_tries = dev.discovery_tries + 1
         try:
-            print "Trying to TLV discover device:", dev.address
+            dev.log.debug("trying to do TLV discover")
             dev.device_info = tlvlib.discovery(dev.address)
             dev.product_type = dev.device_info[0][1]
             dev.label = dev.device_info[0][0]
@@ -328,6 +415,8 @@ class DeviceServer:
             for data in dev.device_info[1]:
                 if data[0] == tlvlib.INSTANCE_BUTTON_GENERIC:
                     dev.button_instance = i
+                elif data[0] == tlvlib.INSTANCE_MOTION_GENERIC:
+                    dev.motion_instance = i
                 elif data[0] == tlvlib.INSTANCE_LEDS_GENERIC:
                     dev.leds_instance = i
                 elif data[0] == tlvlib.INSTANCE_TEMP_GENERIC:
@@ -342,30 +431,34 @@ class DeviceServer:
                 i += 1
 
             if dev.next_update == 0:
-               if self.grab_device(dev.address):
+               if self.grab_device(dev):
                     dev.next_update = time.time() + self.watchdog_time - self.guard_time
             if dev.button_instance:
                 print "\tFound:  Button instance - arming device!"
                 dev.arm_device(dev.button_instance)
 
+            if dev.motion_instance:
+                print "\tFound:  Motion instance - arming device!"
+                dev.arm_device(dev.motion_instance)
+
             de = DeviceEvent(dev, EVENT_DISCOVERY)
             self.send_event(de)
         except Exception as e:
-            print e
+            dev.log.error("discovery failed: %s", str(e))
         dev._discovery_lock = False
 
     def ping(self, dev):
-        print "Pinging: ", dev.address, " to check liveness..."
-        p=subprocess.Popen(["ping6", "-c", "1", "-W", "2", dev.address],
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        dev.log.debug("Pinging to check liveness...")
+        p = subprocess.Popen(["ping6", "-c", "1", dev.address],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             while True:
                 line = p.stdout.readline()
                 if line == '': break
-                print line
+                # print line
         except Exception as e:
             print e
-            print "Ping Unexpected error:", sys.exc_info()[0]
+            dev.log.error("Ping Unexpected error: %s", str(sys.exc_info()[0]))
         p.wait()
         dev.last_ping = time.time()
         if p.returncode == 0:
@@ -380,7 +473,7 @@ class DeviceServer:
     # messing with the same lists when devices need to be added/deleted.
     # ----------------------------------------------------------------
     def _manage_devices(self):
-        while True:
+        while self.running:
             current_time = time.time()
             remove_list = []
             for dev in self.get_devices():
@@ -402,11 +495,11 @@ class DeviceServer:
                         continue
 
                 # Check if there is need for WDT update
-                if current_time > dev.next_update:
-                    print "Updating WDT in", dev.address
+                if current_time > dev.next_update and dev.next_update >= 0:
+                    dev.log.debug("UPDATING WDT!")
                     dev.update_tries += 1
                     if dev.update_tries > 20:
-                        print "Removing",dev.address,"due to too",dev.update_tries,"WDT update retries"
+                        print "[" + dev.address + "] REMOVED due to",dev.update_tries,"WDT update retries"
                         remove_list.append(dev)
                     else:
                         t1 = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG, self.watchdog_time)
@@ -415,10 +508,10 @@ class DeviceServer:
                             dev.next_update = current_time + 60
                             dev.send_tlv(t1)
                         except Exception as e:
-                            print "Failed to update WDT in", dev.address
+                            print "[" + dev.address + "] FAILED TO UPDATE WDT!"
                             print e
 
-                if current_time >= dev.next_fetch:
+                if current_time >= dev.next_fetch and dev.next_fetch >= 0:
                     dev.fetch_tries += 1
                     if self._fetch_periodic(dev):
                         dev.fetch_tries = 0
@@ -429,7 +522,6 @@ class DeviceServer:
                         dev.next_fetch = time.time() + 10 * dev.fetch_tries
 
             for dev in remove_list:
-                print "Removing device", dev.address
                 self.remove_device(dev.address)
 
             time.sleep(1)
@@ -444,22 +536,27 @@ class DeviceServer:
         return None
 
     # adds a device to the grabbed devices list
-    def add_device(self, addr):
+    def add_device(self, sock, addr, port=tlvlib.UDP_PORT):
         d = self.get_device(addr)
         if d is not None:
             return d;
-        print "Adding device",addr
 
-        d = Device(addr, self)
+        endpoint = EndPoint(sock, addr, port)
+        d = Device(addr, endpoint, self)
         d.last_seen = time.time()
         # to avoid pinging immediately
         d.last_ping = d.last_seen
+        d.next_fetch = d.last_seen + self.fetch_time
+        d.log.debug("ADDED")
 
         self._devices[addr] = d
         return d
 
     def remove_device(self, addr):
-        del self._devices[addr]
+        d = self.get_device(addr)
+        if d is not None:
+            del self._devices[addr]
+            d.log.debug("REMOVED")
 
     def fetch_nstats(self):
         t = threading.Thread(target=self._fetch_nstats)
@@ -470,13 +567,13 @@ class DeviceServer:
         for dev in self.get_devices():
             if dev.nstats_instance:
                 # The device has the network instance
-                print "Fetching network statistics from", dev.address
+                dev.log.debug("Requesting network statistics")
                 try:
                     t = nstatslib.create_nstats_tlv(dev.nstats_instance)
                     if not dev.send_tlv(t):
-                        print "*** Failed to fetch network statistics from", dev.address
+                        dev.log.debug("*** Failed to fetch network statistics")
                 except Exception as e:
-                    print "**** Failed to fetch network statistics:", e
+                    dev.log.debug("**** Failed to fetch network statistics: %s", str(e))
                 time.sleep(0.5)
 
     def _lookup_device_host(self, prefix, default_host):
@@ -514,7 +611,7 @@ class DeviceServer:
     def _fetch_periodic(self, device):
         t = []
         t.append(tlvlib.create_get_tlv64(0, tlvlib.VARIABLE_UNIT_BOOT_TIMER))
-        if device.nstats_instance is not None:
+        if False and device.nstats_instance is not None:
             t.append(nstatslib.create_nstats_tlv(device.nstats_instance))
 
         if device.button_instance is not None:
@@ -526,11 +623,21 @@ class DeviceServer:
                                                0, 0, 2,
                                                struct.pack("!LL", 1, 2)))
 
+        if device.motion_instance is not None:
+            if device.button_instance is None:
+                t.append(tlvlib.create_set_vector_tlv(0, tlvlib.VARIABLE_EVENT_ARRAY,
+                                                      0, 0, 1,
+                                                      struct.pack("!L", 1)))
+            t.append(tlvlib.create_set_vector_tlv(device.motion_instance,
+                                               tlvlib.VARIABLE_EVENT_ARRAY,
+                                               0, 0, 2,
+                                               struct.pack("!LL", 1, 2)))
+
         try:
-            print "Fetching periodic data from", device.address
+            device.log.debug("requesting periodic data: %s",tlvlib.get_tlv_short_info(t))
             return device.send_tlv(t)
         except socket.timeout:
-            print "Failed to fetch from device (time out)"
+            device.log.error("failed to fetch from device (time out)")
             return False
 
     def setup(self):
@@ -545,7 +652,7 @@ class DeviceServer:
 
         i = 1
         for data in d[1]:
-            print "instance:",i , " type: %016x"%data[0], " ", data[1]
+            print "Instance:",i , " type: %016x"%data[0], " ", data[1]
             # check for radio and if found - configure beacons
             if data[0] == tlvlib.INSTANCE_RADIO:
                 self.radio_instance = i
@@ -576,16 +683,31 @@ class DeviceServer:
             print "Error - could not find the radio instance - not starting the device server"
             return False
 
+        if not self.router_instance:
+            print "Error - could not find the router instance - not starting the device server"
+            return False
+
         # Setup socket to make sure it is possible to bind the address
         try:
             self._sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._sock.bind((self.udp_address, self.udp_port))
             #self._sock.bind(('', self.udp_port))
+            self._sock.settimeout(1.0)
+
+
+            self._sock4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            self._sock4.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._sock4.bind(('localhost', self.udp_port))
+            self._sock4.settimeout(1.0)
+
         except Exception as e:
             print e
             print "Error - could not bind to the address", self.udp_address
             return False
+
+        # set radio channel and panid
+        self.set_channel_panid()
 
         # set-up beacon to ...
         IPv6Str = binascii.hexlify(socket.inet_pton(socket.AF_INET6, self.udp_address))
@@ -602,6 +724,31 @@ class DeviceServer:
 #        tlvlib.print_tlv(t[0])
         return True
 
+    def stop(self):
+        self.running = False
+#        sys.exit(0)
+
+    def wakeup(self, host, time=60):
+        device = self.get_device(host)
+        if device is not None:
+            self._wakeup_device(device, time)
+        elif host == "all" or host == "*":
+            for dev in self.get_devices():
+                if dev.is_sleepy_device():
+                    self._wakeup_device(dev, time)
+        else:
+            print "could not find device with address",host
+
+    def _wakeup_device(self, device, time):
+        if device.is_sleepy_device() and device.sleep_instance is not None:
+            print "requesting [" + device.address + "] to wakeup"
+            t = tlvlib.create_set_tlv32(device.sleep_instance,
+                                        tlvlib.VARIABLE_SLEEP_AWAKE_TIME_WHEN_NO_ACTIVITY,
+                                        time * 1000L)
+            device.send_tlv(t)
+        else:
+            print device.address,"is not a sleepy device"
+
     def set_channel_panid(self):
         # set radio channel
         t1 = tlvlib.create_set_tlv32(self.radio_instance,
@@ -613,6 +760,31 @@ class DeviceServer:
                                      self.radio_panid)
         tlvlib.send_tlv([t1,t2], self.router_host)
 
+    def _udp_receive(self, sock):
+        print "UDP Receive - on socket: ", sock
+        while self.running:
+            try:
+                data, addr = sock.recvfrom(1024)
+                if not self.running:
+                    return
+#                print "Received from ", addr, binascii.hexlify(data)
+                if len(addr) > 2:
+                    host, port, _, _ = addr
+                else:
+                    host, port = addr
+
+                device = self.get_device(host)
+                enc = tlvlib.parse_encap(data)
+                if enc.error != 0:
+                    self.log.error("[%s] RECV ENCAP ERROR %s", '', str(enc.error))
+                elif enc.payload_type == tlvlib.ENC_PAYLOAD_TLV:
+                    self._process_incoming_tlvs(sock, host, port, device, enc, data[enc.size():])
+                else:
+                    self.log.error("[%s] RECV ENCAP UNHANDLED PAYLOAD %s", str(enc.payload_type))
+
+            except socket.timeout:
+                pass
+
     def serve_forever(self):
         # Initialize if not already initialized
         if not self.router_instance:
@@ -620,97 +792,98 @@ class DeviceServer:
                 # Initialization failed
                 return False
 
-        print "Device server started at [" + self.udp_address + "]:" + str(self.udp_port)
+        self.log.info("Device server started at [%s]:%d", self.udp_address, self.udp_port)
 
-        # do device management each 10 seconds
-        t = threading.Thread(target=self._manage_devices)
-        t.daemon = True
-        t.start()
-        while True:
-            try:
-                data, addr = self._sock.recvfrom(1024)
-                host, port, _, _ = addr
-                request_temp = False
-                print "Received from ", addr, binascii.hexlify(data)
-                enc = tlvlib.parse_encap(data)
-                tlvs = tlvlib.parse_tlvs(data[enc.size():])
-                device = self.get_device(host)
-                if device is not None:
-                    device.last_seen = time.time();
-                dev_type = 0
-                button_counter = None
+        self.running = True
+
+        # do device management periodically
+        t1 = threading.Thread(target=self._manage_devices)
+        t1.daemon = True
+        t1.start()
+
+        # sock4 socket
+        t2 = threading.Thread(target=self._udp_receive, args=[self._sock4])
+        t2.daemon = True
+        t2.start()
+        self._udp_receive(self._sock)
+        t2.join()
+        t1.join()
+        self._sock.close()
+        self._sock4.close()
+        exit(0)
+
+    def _process_incoming_tlvs(self, sock, host, port, device, enc, data):
+        tlvs = tlvlib.parse_tlvs(data)
+
+        if device is not None:
+            last_seeen = device.last_seen
+            device.last_seen = time.time();
+            device.log.debug("RECV %s",tlvlib.get_tlv_short_info(tlvs))
+        else:
+            last_seen = time.time()
+            self.log.debug("[%s] RECV %s",host,tlvlib.get_tlv_short_info(tlvs))
+
+        ping_device = False
+        dev_watchdog = None
+        dev_type = 0
 #                print " Received TLVs:"
 #                tlvlib.print_tlvs(tlvs)
-                for tlv in tlvs:
-                    if tlv.error != 0:
-                        print "Received error:"
-                        tlvlib.print_tlv(tlv)
-                    elif tlv.instance == 0:
-                        if tlv.variable == 0:
-                            dev_type = tlv.int_value
-                        elif tlv.variable == tlvlib.VARIABLE_UNIT_BOOT_TIMER:
-                            if device:
-                                # Update the boot time estimation
-                                seconds,nanoseconds = tlvlib.convert_ieee64_time(tlv.int_value)
-                                device.boot_time = time.time() - seconds
-                                request_temp = True
-                                print host,"booted",seconds,"seconds ago"
-                        elif tlv.variable == tlvlib.VARIABLE_TIME_SINCE_LAST_GOOD_UC_RX:
-                            pass
-                        elif tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
-                            if not device and not self.is_device_acceptable(host, dev_type):
-                                print "IGNORING node", host, "of type 0x%016x"%dev_type, "that could be taken over"
-                            else:
-                                print "FOUND device",host,"of type 0x%016x"%dev_type,"that can be taken over - WDT = 0"
-                                if self.grab_device(host):
-                                    if not device:
-                                        device = self.add_device(host)
-                                    device.next_update = time.time() + self.watchdog_time - self.guard_time
-                    elif device and device.button_instance and tlv.instance == device.button_instance:
-                        if tlv.variable == tlvlib.VARIABLE_GPIO_TRIGGER_COUNTER:
-                            button_counter = tlv.int_value
-                        elif tlv.variable == tlvlib.VARIABLE_EVENT_ARRAY:
-                            if button_counter is not None:
-                                print "Button pressed at node",host,"-",button_counter,"times"
-                            # Rearm the button
-                            device.arm_device(device.button_instance)
-
-                            if button_counter is not None:
-                                de = DeviceEvent(device, EVENT_BUTTON, button_counter)
-                                self.send_event(de)
-                    elif device and device.nstats_instance and tlv.instance == device.nstats_instance:
-                        if tlv.variable == tlvlib.VARIABLE_NSTATS_DATA:
-                            device._handle_nstats(tlv)
-                if not device:
-                    if self.grab_all > 0 and self.is_device_acceptable(host, dev_type):
-                        # Unknown device - do a grab attempt
-#                        time.sleep(0.005)
-                        if self.grab_device(host):
-                            device = self.add_device(host)
-                            device.next_update = time.time() + self.watchdog_time - self.guard_time
-                            self.discover_device(device)
-                elif device.is_discovered():
-#                    time.sleep(0.005)
-                    if request_temp and device.get_pending_packet_count() == 0:
-                        t = tlvlib.create_get_tlv64(0, tlvlib.VARIABLE_UNIT_BOOT_TIMER)
-                        device.send_tlv(t)
-
-                    device._flush()
+        for tlv in tlvs:
+            if tlv.error != 0:
+                if device is not None:
+                    device.log.error("Received error (" + str(tlv.error) + "):")
                 else:
-                    self.discover_device(device)
+                    self.log.error("[%s] Received error:", host)
+                tlvlib.print_tlv(tlv)
+            elif tlv.instance == 0 and tlv.op == tlvlib.TLV_GET_RESPONSE:
+                if tlv.variable == tlvlib.VARIABLE_OBJECT_TYPE:
+                    dev_type = tlv.int_value
+                elif tlv.variable == tlvlib.VARIABLE_UNIT_BOOT_TIMER:
+                    pass
+                elif tlv.variable == tlvlib.VARIABLE_TIME_SINCE_LAST_GOOD_UC_RX:
+                    if device is not None and last_seen - time.time() > 55:
+                        ping_device = True
+                elif tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
+                    dev_watchdog = tlv.int_value
 
-            except socket.timeout:
-                print "."
-                pass
+        if not device:
+            if dev_watchdog is not None or self.grab_all == 0:
+                if dev_type == tlvlib.INSTANCE_BORDER_ROUTER:
+                    # Do not try to grab the border router
+                    pass
+                elif not self.is_device_acceptable(host, dev_type):
+                    self.log.debug("[%s] IGNORING device of type 0x%016x that could be taken over", host, dev_type)
+                else:
+                    # Unknown device - do a grab attempt
+                    if dev_watchdog is not None:
+                        self.log.debug("[%s] FOUND new device of type 0x%016x that can be taken over - WDT = %d", host, dev_type, dev_watchdog)
+
+                    if self.grab_device(host):
+                        device = self.add_device(sock, host, port)
+                        device.next_update = time.time() + self.watchdog_time - self.guard_time
+                        self.discover_device(device)
+        elif device.is_discovered():
+#                    time.sleep(0.005)
+            device._process_tlvs(tlvs)
+            if not device.is_sleepy_device() and ping_device and device.get_pending_packet_count() == 0:
+                t = tlvlib.create_get_tlv64(0, tlvlib.VARIABLE_UNIT_BOOT_TIMER)
+                device.send_tlv(t)
+
+            device._flush()
+        else:
+            self.discover_device(device)
 
 def usage():
-    print "Usage:",sys.argv[0],"[-b bind-address] [-a host] [-c channel] [-P panid] [-t node-address-list] [device]"
+    print "Usage:",sys.argv[0],"[-b bind-address] [-a host] [-c channel] [-P panid] [-t node-address-list] [-g 0/1] [-nocli] [device]"
     exit(0)
 
 if __name__ == "__main__":
     # stuff only to run when not called via 'import' here
     manage_device = None
     arg = 1
+    start_cli = True
+
+    logging.basicConfig(format='%(asctime)s [%(name)s] %(levelname)s - %(message)s', level=logging.DEBUG)
 
     server = DeviceServer()
 
@@ -727,12 +900,16 @@ if __name__ == "__main__":
             server.grab_all = tlvlib.decodevalue(sys.argv[arg + 1])
         elif sys.argv[arg] == "-t":
             server._accept_nodes = tuple(sys.argv[arg + 1].split(','))
+        elif sys.argv[arg] == "-nocli":
+            start_cli = False
         else:
             break
         arg += 2
 
     if len(sys.argv) > arg:
         if sys.argv[arg] == "-h":
+            usage()
+        if sys.argv[arg].startswith("-"):
             usage()
         manage_device = sys.argv[arg]
         arg += 1
@@ -756,6 +933,8 @@ if __name__ == "__main__":
         print "Failed to connect to border router."
         sys.exit(1)
 
-    server.set_channel_panid()
+    if start_cli:
+        dscli.start_cli(server)
     server.serve_forever()
-    print "*** Error - device server stopped"
+    if server.running:
+        server.log.error("*** device server stopped")
