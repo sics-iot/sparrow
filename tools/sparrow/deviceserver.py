@@ -168,8 +168,7 @@ class Device:
         self.last_seen = time.time();
         for tlv in tlvs:
             if tlv.error != 0:
-                self.log.error("Received error:")
-                tlvlib.print_tlv(tlv)
+                # TLV errors has already been printed when received
 
                 if tlv.instance == 0:
                     if tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
@@ -245,6 +244,10 @@ class Device:
         elif self.nstats_instance and tlv.instance == self.nstats_instance:
             if tlv.variable == tlvlib.VARIABLE_NSTATS_DATA:
                 self._handle_nstats(tlv)
+        elif self.temperature_instance and tlv.instance == self.temperature_instance:
+            if tlv.variable == tlvlib.VARIABLE_TEMPERATURE:
+                temperature = (tlv.int_value - 273150) / 1000.0
+                self.log.info("Temperature: " + str(round(temperature, 2)) + " C")
 
     def _handle_nstats(self, tlv):
         if tlv.error != 0:
@@ -420,6 +423,8 @@ class DeviceServer:
                 elif data[0] == tlvlib.INSTANCE_LEDS_GENERIC:
                     dev.leds_instance = i
                 elif data[0] == tlvlib.INSTANCE_TEMP_GENERIC:
+                    dev.temperature_instance = i
+                elif data[0] == tlvlib.INSTANCE_TEMPHUM_GENERIC:
                     dev.temperature_instance = i
                 elif data[0] == tlvlib.INSTANCE_NETWORK_STATISTICS:
                     print "\tFound:  Network Statistics"
