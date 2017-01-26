@@ -94,7 +94,7 @@ def get_image_status(instance, host, port):
     return None
 
 def send_upgrade(segment, size, instance, host, port):
-    print "Upgrading ", segment[0], instance, len(segment[1]), " at ", segment[0] * size, "\b" * 35,
+    print "Upgrading ", segment[0] + 1, instance, len(segment[1]), " at ", segment[0] * size, "\b" * 35,
     sys.stdout.flush()
     t1 = tlvlib.create_set_tlv32(instance, tlvlib.VARIABLE_WRITE_CONTROL,
                                  tlvlib.FLASH_WRITE_CONTROL_WRITE_ENABLE)
@@ -102,9 +102,12 @@ def send_upgrade(segment, size, instance, host, port):
                                       tlvlib.SIZE32, segment[0] * size / 4, len(segment[1]) / 4, segment[1])
     try:
         enc,tlvs = tlvlib.send_tlv([t1,t2], host, port, 1.5)
+        if enc.error != 0 or tlvs[0].error != 0 or tlvs[1].error != 0:
+            print
+            print "ERROR: failed to write image segment"
+            return False
     except socket.timeout:
         return False
-    #tlvlib.print_tlvs(tlvs)
     return True
 
 def create_segments(data, size):
@@ -146,7 +149,7 @@ def do_upgrade(data, instance, host, port, block_size, retry_passes=50):
     i = 0
     while i < retry_passes and len(to_upgrade.keys()) > 0:
         i += 1
-        print "Writing", i, segments, "left to go.", "\b" * 35,
+        print "Writing", i, len(to_upgrade.keys()), "left to go.", "\b" * 35,
         sys.stdout.flush()
         new_upgrade = {}
         for udata in to_upgrade:
@@ -277,13 +280,13 @@ if (upgrade_status & tlvlib.IMAGE_STATUS_ERASED) == 0:
     print "Erasing image",upgrade
     i = 5
     while i >= 0:
-         if not do_erase(upgrade, host, port):
-             i = i - 1
-             if i == 0:
-                 print "ERROR: failed to erase image"
-                 exit()
-         else:
-             break
+        if not do_erase(upgrade, host, port):
+            i = i - 1
+            if i == 0:
+                print "ERROR: failed to erase image"
+                exit()
+        else:
+            break
 
 if not do_upgrade(data, upgrade, host, port, block_size):
     print "ERROR: failed to write firmware file"

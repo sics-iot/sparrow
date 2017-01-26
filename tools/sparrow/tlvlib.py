@@ -654,7 +654,7 @@ def print_tlv(tlv):
     if tlv.is_null:
         print "NULL TLV"
         return
-    print "  TLV ver:", tlv.version, " op:", tlv.op, " instance:", tlv.instance, " var: 0x%x"%(tlv.variable), " length:", tlv.length, " error:", tlv.error
+    print "  TLV ver:", tlv.version, " op:", tlv.op, " instance:", tlv.instance, " var: 0x%x"%(tlv.variable), " length:", tlv.length * 4, " error:", tlv.error
     if tlv.op >= 128:
         print "\telements:", tlv.element_count, " offset:", tlv.element_offset, " size:", 4 * (2 ** tlv.element_size)
     else:
@@ -849,7 +849,7 @@ def find_instance_with_type(host, product_type, verbose = False):
             return i + 1
     return None
 
-def discovery(host, port=UDP_PORT):
+def discovery(host, port=UDP_PORT, timeout=3.0):
     # get product type
     t1 = create_get_tlv64(0, VARIABLE_OBJECT_TYPE)
     # get product label
@@ -858,7 +858,7 @@ def discovery(host, port=UDP_PORT):
     t3 = create_get_tlv32(0, VARIABLE_NUMBER_OF_INSTANCES)
     # get the boot timer
     t4 = create_get_tlv64(0, VARIABLE_UNIT_BOOT_TIMER)
-    enc,tlvs = send_tlv([t1,t2,t3,t4], host, port, timeout=3.0)
+    enc,tlvs = send_tlv([t1,t2,t3,t4], host, port, timeout=timeout)
     product_type = tlvs[0].int_value
     product_label = convert_string(tlvs[1].value)
     num_instances = tlvs[2].int_value
