@@ -168,8 +168,7 @@ class Device:
         self.last_seen = time.time();
         for tlv in tlvs:
             if tlv.error != 0:
-                self.log.error("Received error:")
-                tlvlib.print_tlv(tlv)
+                # TLV errors has already been printed when received
 
                 if tlv.instance == 0:
                     if tlv.variable == tlvlib.VARIABLE_UNIT_CONTROLLER_WATCHDOG:
@@ -245,6 +244,10 @@ class Device:
         elif self.nstats_instance and tlv.instance == self.nstats_instance:
             if tlv.variable == tlvlib.VARIABLE_NSTATS_DATA:
                 self._handle_nstats(tlv)
+        elif self.temperature_instance and tlv.instance == self.temperature_instance:
+            if tlv.variable == tlvlib.VARIABLE_TEMPERATURE:
+                temperature = (tlv.int_value - 273150) / 1000.0
+                self.log.info("Temperature: " + str(round(temperature, 2)) + " C")
 
     def _handle_nstats(self, tlv):
         if tlv.error != 0:
@@ -421,6 +424,8 @@ class DeviceServer:
                     dev.leds_instance = i
                 elif data[0] == tlvlib.INSTANCE_TEMP_GENERIC:
                     dev.temperature_instance = i
+                elif data[0] == tlvlib.INSTANCE_TEMPHUM_GENERIC:
+                    dev.temperature_instance = i
                 elif data[0] == tlvlib.INSTANCE_NETWORK_STATISTICS:
                     print "\tFound:  Network Statistics"
                     dev.nstats_instance = i
@@ -536,7 +541,7 @@ class DeviceServer:
         return None
 
     # adds a device to the grabbed devices list
-    def add_device(self, sock, addr, port=tlvlib.UDP_PORT):
+    def _add_device(self, sock, addr, port=tlvlib.UDP_PORT):
         d = self.get_device(addr)
         if d is not None:
             return d;
@@ -551,6 +556,9 @@ class DeviceServer:
 
         self._devices[addr] = d
         return d
+
+    def add_device(self, addr, port=tlvlib.UDP_PORT):
+        self._add_device(self._sock, addr, port)
 
     def remove_device(self, addr):
         d = self.get_device(addr)
@@ -859,7 +867,7 @@ class DeviceServer:
                         self.log.debug("[%s] FOUND new device of type 0x%016x that can be taken over - WDT = %d", host, dev_type, dev_watchdog)
 
                     if self.grab_device(host):
-                        device = self.add_device(sock, host, port)
+                        device = self._add_device(sock, host, port)
                         device.next_update = time.time() + self.watchdog_time - self.guard_time
                         self.discover_device(device)
         elif device.is_discovered():
@@ -918,9 +926,6 @@ if __name__ == "__main__":
         print "Too many arguments"
         exit(1)
 
-    if manage_device:
-        server.add_device(manage_device)
-
     try:
         if not server.setup():
             print "No border router found. Please make sure a border router is running!"
@@ -935,6 +940,10 @@ if __name__ == "__main__":
 
     if start_cli:
         dscli.start_cli(server)
+
+    if manage_device:
+        server.add_device(manage_device)
+
     server.serve_forever()
     if server.running:
         server.log.error("*** device server stopped")
