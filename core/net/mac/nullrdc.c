@@ -150,6 +150,8 @@ send_one_packet(mac_callback_t sent, void *ptr)
   } else {
     max_tx_attempts = NULLRDC_MAX_RETRANSMISSIONS + 1;
   }
+#else /* NULLRDC_ENABLE_RETRANSMISSIONS */
+  radio_value_t txmits;
 #endif /* NULLRDC_ENABLE_RETRANSMISSIONS */
 
   packetbuf_set_addr(PACKETBUF_ADDR_SENDER, &linkaddr_node_addr);
@@ -302,11 +304,26 @@ send_one_packet(mac_callback_t sent, void *ptr)
   if(ret == MAC_TX_OK) {
     last_sent_ok = 1;
   }
-#if ! NULLRDC_ENABLE_RETRANSMISSIONS
-  mac_call_sent_callback(sent, ptr, ret, 1);
-#else
+#if NULLRDC_ENABLE_RETRANSMISSIONS
   mac_call_sent_callback(sent, ptr, ret, tx_attempts);
+#else /* NULLRDC_ENABLE_RETRANSMISSIONS */
+  /*
+   * If the radio has builtin support for retransmissions, use the
+   * number of transmissions reported by the radio. Otherwise the
+   * packet has only been sent once.
+   */
+  if(NETSTACK_RADIO.get_value(RADIO_PARAM_LAST_NUM_TRANSMISSIONS, &txmits)
+     != RADIO_RESULT_OK) {
+    if(ret == MAC_TX_OK || ret == MAC_TX_NOACK) {
+      txmits = 1;
+    } else {
+      txmits = 0;
+    }
+  }
+
+  mac_call_sent_callback(sent, ptr, ret, (int)txmits);
 #endif /* !NULLRDC_ENABLE_RETRANSMISSIONS */
+
   return last_sent_ok;
 }
 /*---------------------------------------------------------------------------*/
@@ -341,6 +358,7 @@ send_list(mac_callback_t sent, void *ptr, struct rdc_buf_list *buf_list)
 static void
 packet_input(void)
 {
+  int ret;
 #if NULLRDC_SEND_802154_ACK
   int original_datalen;
   uint8_t *original_dataptr;
@@ -355,8 +373,11 @@ packet_input(void)
     PRINTF("nullrdc: ignored ack\n"); 
   } else
 #endif /* NULLRDC_802154_AUTOACK */
-  if(NETSTACK_FRAMER.parse() < 0) {
-    PRINTF("nullrdc: failed to parse %u\n", packetbuf_datalen());
+  if((ret = NETSTACK_FRAMER.parse()) < 0) {
+    /* Only print warning if the frame was not handled by the framer */
+    if(ret != FRAMER_FRAME_HANDLED) {
+      PRINTF("nullrdc: failed to parse %u\n", packetbuf_datalen());
+    }
 #if NULLRDC_ADDRESS_FILTER
   } else if(!linkaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_RECEIVER),
                                          &linkaddr_node_addr) &&
@@ -397,7 +418,7 @@ packet_input(void)
       }
     }
 #endif /* NULLRDC_SEND_ACK */
-    if(!duplicate) {
+    if(!duplicate && packetbuf_datalen() > 0) {
       NETSTACK_MAC.input();
     }
   }
