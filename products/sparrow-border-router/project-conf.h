@@ -160,4 +160,7 @@
                               0x0C , 0x0D , 0x0E , 0x0F }
 #endif /* LLSEC_CONF_LEVEL */
 
+#define WITH_IP64 1
+#define IP64_CONF_DHCP              1
+
 #endif /* PROJECT_ROUTER_CONF_H_ */

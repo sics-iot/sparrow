@@ -36,6 +36,9 @@
 #include "net/netstack.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
+#include "ip64-conf.h"
+#include "ip64.h"
+#include "net/ip/ip64-addr.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -73,6 +76,9 @@
 #include "cmd.h"
 #include "border-router.h"
 #include "br-config.h"
+
+#define UIP_IP_BUF          ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
+extern const struct uip_fallback_interface ip64_uip_fallback_interface;
 
 static int is_open = 0;
 
@@ -259,6 +265,11 @@ tun_input(uint8_t *data, int maxlen)
 static void
 init(void)
 {
+#if WITH_IP64
+  printf("Init IP64\n");
+  ip64_init();
+  ip64_uip_fallback_interface.init();
+#endif
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -269,6 +280,19 @@ output(void)
 #if LATENCY_STATISTICS
     latency_stats_handle_packet(&uip_buf[UIP_LLH_LEN], uip_len, LATENCY_STATISTICS_FROM_PAN);
 #endif /* LATENCY_STATISTICS */
+
+#if WITH_IP64
+    if(ip64_addr_is_ipv4_mapped_addr(&UIP_IP_BUF->destipaddr)) {
+      /* This is an IP64 address */
+      printf("output to ip64: ");
+      uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+      printf("\n");
+      return ip64_uip_fallback_interface.output();
+    }
+    printf("output to tun: ");
+    uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+    printf("\n");
+#endif /* WITH_IP64 */
     return tun_output(&uip_buf[UIP_LLH_LEN], uip_len);
   }
   return 0;
