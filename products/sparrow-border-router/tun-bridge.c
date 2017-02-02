@@ -265,11 +265,6 @@ tun_input(uint8_t *data, int maxlen)
 static void
 init(void)
 {
-#if WITH_IP64
-  printf("Init IP64\n");
-  ip64_init();
-  ip64_uip_fallback_interface.init();
-#endif
 }
 /*---------------------------------------------------------------------------*/
 static int

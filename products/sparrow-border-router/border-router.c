@@ -64,10 +64,15 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "ip64-conf.h"
+#include "ip64.h"
+#include "net/ip/ip64-addr.h"
+
 #include "udp-cmd.h"
 #include "sparrow-oam.h"
 
 void enc_dev_init(void);
+extern const struct uip_fallback_interface ip64_uip_fallback_interface;
 
 #define YLOG_LEVEL YLOG_LEVEL_INFO
 #define YLOG_NAME  "nbr"
@@ -858,6 +863,21 @@ PROCESS_THREAD(border_router_process, ev, data)
     /* Reply to beacon requests */
     border_router_set_beacon(br_config_beacon);
   }
+
+#if WITH_IP64
+  printf("Init IP64\n");
+  ip64_init();
+  ip64_uip_fallback_interface.init();
+#if !IP64_CONF_DHCP
+  {
+    uip_ip4addr_t addr, netmask;
+    uip_ipaddr(&addr, 172, 16, 0, 1);
+    uip_ipaddr(&netmask, 172, 16, 0, 0);
+    ip64_set_ipv4_address(&addr, &netmask);
+  }
+#endif
+#endif
+
 
   while(1) {
     etimer_set(&et, CLOCK_SECOND * 10);

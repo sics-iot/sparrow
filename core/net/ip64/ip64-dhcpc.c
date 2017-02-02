@@ -333,7 +333,7 @@ PT_THREAD(handle_dhcp(process_event_t ev, void *data))
   } while(s.state != STATE_CONFIG_RECEIVED);
   
  bound:
-#if 0
+#if 1
   printf("Got IP address %d.%d.%d.%d\n", uip_ipaddr_to_quad(&s.ipaddr));
   printf("Got netmask %d.%d.%d.%d\n",	 uip_ipaddr_to_quad(&s.netmask));
   printf("Got DNS server %d.%d.%d.%d\n", uip_ipaddr_to_quad(&s.dnsaddr));

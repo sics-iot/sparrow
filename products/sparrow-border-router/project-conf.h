@@ -161,6 +161,6 @@
 #endif /* LLSEC_CONF_LEVEL */
 
 #define WITH_IP64 1
-#define IP64_CONF_DHCP              1
+#define IP64_CONF_DHCP              0
 
 #endif /* PROJECT_ROUTER_CONF_H_ */

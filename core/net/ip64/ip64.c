@@ -64,12 +64,12 @@
 #include "ip64-ipv4-dhcp.h"
 #include "contiki-net.h"
 
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #include <string.h> /* for memcpy() */
 #include <stdio.h> /* for printf() */
 
-#define DEBUG 0
 
 #if DEBUG
 #undef PRINTF
@@ -835,10 +835,12 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
 	 special, so we map the port number according to the address
 	 mapping table. */
 
+        
+
 	m = ip64_addrmap_lookup_port(uip_ntohs(udphdr->destport),
 				     v4hdr->proto);
 	if(m == NULL) {
-	  PRINTF("Inbound lookup failed\n");
+	  PRINTF("Inbound lookup failed %d\n", uip_ntohs(udphdr->destport));
 	  return 0;
 	} else {
 	  PRINTF("Inbound lookup did not fail\n");
