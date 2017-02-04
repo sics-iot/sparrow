@@ -128,13 +128,16 @@ VARIABLE_IMAGE_VERSION         =  0x106
 VARIABLE_IMAGE_LENGTH          =  0x107
 VARIABLE_IMAGE_CRC32           =  0x108
 
+# variables used in sleep instance
+VARIABLE_SLEEP_AWAKE_TIME_WHEN_NO_ACTIVITY = 0x101
+
+# various variables
+VARIABLE_LAMP_INTENSITY        = 0x100
+
 FLASH_WRITE_CONTROL_ERASE        = 0x911
 FLASH_WRITE_CONTROL_WRITE_ENABLE = 0x23
 
 HARDWARE_RESET_KEY               = 0x38f0000
-
-# variables used in sleep instance
-VARIABLE_SLEEP_AWAKE_TIME_WHEN_NO_ACTIVITY = 0x101
 
 IMAGE_STATUS_OK		   = 0x00
 IMAGE_STATUS_BAD_CHECKSUM  = 0x01
@@ -720,6 +723,16 @@ def convert_sht20_humidity_over_ice(rawHumidity, temperature):
     rhi = rhw * exp((17.62 * temperature) / (234.12 + temperature)) / exp((22.46 * temperature) / (272.62 + temperature))
     return rhi
 
+def convert_intensity32_to_percent(intensity):
+    return ((intensity & 0xffffffff) * 100) / 0xffffffff
+
+def convert_percent_to_intensity32(percent):
+    if percent > 100:
+        percent = 100
+    elif percent < 0:
+        percent = 0
+    return (percent * 0xffffffff) / 100
+
 def convert_ieee64_time(time):
     seconds = (time >> 32) & 0xffffffff
     nanoseconds = time & 0xffffffff
@@ -850,6 +863,8 @@ def find_instance_with_type(host, product_type, verbose = False):
     return None
 
 def discovery(host, port=UDP_PORT, timeout=3.0):
+    # get product id
+    t0 = create_get_tlv128(0, VARIABLE_OBJECT_ID)
     # get product type
     t1 = create_get_tlv64(0, VARIABLE_OBJECT_TYPE)
     # get product label
@@ -858,11 +873,12 @@ def discovery(host, port=UDP_PORT, timeout=3.0):
     t3 = create_get_tlv32(0, VARIABLE_NUMBER_OF_INSTANCES)
     # get the boot timer
     t4 = create_get_tlv64(0, VARIABLE_UNIT_BOOT_TIMER)
-    enc,tlvs = send_tlv([t1,t2,t3,t4], host, port, timeout=timeout)
-    product_type = tlvs[0].int_value
-    product_label = convert_string(tlvs[1].value)
-    num_instances = tlvs[2].int_value
-    boot_timer = tlvs[3].int_value
+    enc,tlvs = send_tlv([t0,t1,t2,t3,t4], host, port, timeout=timeout)
+    product_id, = struct.unpack("!q", tlvs[0].data[8:])
+    product_type = tlvs[1].int_value
+    product_label = convert_string(tlvs[2].value)
+    num_instances = tlvs[3].int_value
+    boot_timer = tlvs[4].int_value
     instances = []
     for i in range(num_instances):
         t1 = create_get_tlv64(i + 1, VARIABLE_OBJECT_TYPE)
@@ -875,4 +891,4 @@ def discovery(host, port=UDP_PORT, timeout=3.0):
         if tlvs[1].error == 0:
             instance_label = convert_string(tlvs[1].value)
         instances = instances + [(instance_type, instance_label, i + 1)]
-    return ((product_label,product_type,boot_timer), instances)
+    return ((product_label,product_type,boot_timer,product_id), instances)

@@ -34,7 +34,7 @@
 #
 
 import tlvlib, nstatslib, sys, struct, binascii, socket, time, threading
-import subprocess, re, dscli, logging
+import subprocess, re, dscli, logging, importlib
 
 EVENT_DISCOVERY = "discovery"
 EVENT_BUTTON = "button"
@@ -59,6 +59,7 @@ class EndPoint:
 
 class Device:
     endpoint = None
+    did = None
     product_type = None
     device_info = None
     label = 'unknown'
@@ -74,6 +75,9 @@ class Device:
     sleep_instance = None
     motion_instance = None
     motion_counter = None
+    lamp_instance = None
+    lamp_intensity = None
+    lamp_is_on = None
 
     nstats_rpl = None
 
@@ -283,6 +287,9 @@ class Device:
 
     def info(self):
         info = "  " + self.address + "\t"
+        if self.did is not None:
+            info += self.did
+        info += "\t"
         if self.is_discovered():
             info += "0x%016x"%self.product_type
         if self.is_sleepy_device():
@@ -343,6 +350,7 @@ class DeviceServer:
 
     def __init__(self):
         self._devices = {}
+        self._devices_did = {}
         self._callbacks = []
         self.log = logging.getLogger("server")
 
@@ -408,11 +416,14 @@ class DeviceServer:
         try:
             dev.log.debug("trying to do TLV discover")
             dev.device_info = tlvlib.discovery(dev.address)
+            dev.did = "EUI64-%016x"%dev.device_info[0][3]
             dev.product_type = dev.device_info[0][1]
             dev.label = dev.device_info[0][0]
             print "\tFound: ", dev.device_info[0][0], " Product Type: 0x%016x"%dev.product_type
             seconds,nanoseconds = tlvlib.convert_ieee64_time(dev.device_info[0][2])
             dev.boot_time = time.time() - seconds
+            # Cache lookup on DID
+            self._devices_did[dev.did] = dev
 
             i = 1
             for data in dev.device_info[1]:
@@ -433,6 +444,8 @@ class DeviceServer:
                     print "\tFound:  Sleep instance"
                     dev.sleep_instance = i
                     dev.set_sleepy_device()
+                elif data[0] == tlvlib.INSTANCE_LAMP:
+                    dev.lamp_instance = i
                 i += 1
 
             if dev.next_update == 0:
@@ -540,6 +553,11 @@ class DeviceServer:
             return self._devices[addr]
         return None
 
+    def get_device_by_did(self, did):
+        if did in self._devices_did:
+            return self._devices_did[did]
+        return None
+
     # adds a device to the grabbed devices list
     def _add_device(self, sock, addr, port=tlvlib.UDP_PORT):
         d = self.get_device(addr)
@@ -555,6 +573,8 @@ class DeviceServer:
         d.log.debug("ADDED")
 
         self._devices[addr] = d
+        if d.did is not None:
+            self._devices_did[d.did] = d
         return d
 
     def add_device(self, addr, port=tlvlib.UDP_PORT):
@@ -564,6 +584,8 @@ class DeviceServer:
         d = self.get_device(addr)
         if d is not None:
             del self._devices[addr]
+            if d.did is not None:
+                del self._devices_did[d.did]
             d.log.debug("REMOVED")
 
     def fetch_nstats(self):
@@ -824,7 +846,7 @@ class DeviceServer:
         tlvs = tlvlib.parse_tlvs(data)
 
         if device is not None:
-            last_seeen = device.last_seen
+            last_seen = device.last_seen
             device.last_seen = time.time();
             device.log.debug("RECV %s",tlvlib.get_tlv_short_info(tlvs))
         else:
@@ -882,7 +904,7 @@ class DeviceServer:
             self.discover_device(device)
 
 def usage():
-    print "Usage:",sys.argv[0],"[-b bind-address] [-a host] [-c channel] [-P panid] [-t node-address-list] [-g 0/1] [-nocli] [device]"
+    print "Usage:",sys.argv[0],"[-b bind-address] [-a host] [-c channel] [-P panid] [-t node-address-list] [-g 0/1] [-nocli 0/1] [-mqtt 0/1] [device]"
     exit(0)
 
 if __name__ == "__main__":
@@ -890,6 +912,7 @@ if __name__ == "__main__":
     manage_device = None
     arg = 1
     start_cli = True
+    start_mqtt = False
 
     logging.basicConfig(format='%(asctime)s [%(name)s] %(levelname)s - %(message)s', level=logging.DEBUG)
 
@@ -909,7 +932,9 @@ if __name__ == "__main__":
         elif sys.argv[arg] == "-t":
             server._accept_nodes = tuple(sys.argv[arg + 1].split(','))
         elif sys.argv[arg] == "-nocli":
-            start_cli = False
+            start_cli = tlvlib.decodevalue(sys.argv[arg + 1]) != 0
+        elif sys.argv[arg] == "-mqtt":
+            start_mqtt = tlvlib.decodevalue(sys.argv[arg + 1]) != 0
         else:
             break
         arg += 2
@@ -918,6 +943,7 @@ if __name__ == "__main__":
         if sys.argv[arg] == "-h":
             usage()
         if sys.argv[arg].startswith("-"):
+            print "Unsupported argument:", sys.argv[arg]
             usage()
         manage_device = sys.argv[arg]
         arg += 1
@@ -937,6 +963,11 @@ if __name__ == "__main__":
         print e
         print "Failed to connect to border router."
         sys.exit(1)
+
+    if start_mqtt:
+        print "Starting MQTT"
+        mqtt_deviceserver = importlib.import_module('mqtt-deviceserver')
+        mqtt_deviceserver.start_mqtt(server)
 
     if start_cli:
         dscli.start_cli(server)
