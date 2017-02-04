@@ -115,10 +115,14 @@ def handle_brightness(client, device, op, payload):
         print "MQTT",device.did,"is not a lamp!"
     elif op == "set":
         value = tlvlib.decodevalue(payload)
-        value = tlvlib.convert_percent_to_intensity32(value)
+        if value > 255:
+            value = 255
+        elif value < 0:
+            value = 0
+        value = (value * 0xffffffff) / 255
         if _set_lamp(device, value):
             if device.lamp_is_on:
-                value = tlvlib.convert_intensity32_to_percent(device.lamp_intensity)
+                value = (device.lamp_intensity * 255) / 0xffffffff
             else:
                 value = 0
             client.publish("yanzi/" + device.did + "/brightness/status", str(value))
