@@ -122,7 +122,7 @@ def handle_brightness(client, device, op, payload):
             else:
                 value = 0
             client.publish("yanzi/" + device.did + "/brightness/status", str(value))
-            if was_on is not None and was_on != device.lamp_is_on:
+            if was_on is None or was_on != device.lamp_is_on:
                 if device.lamp_is_on:
                     payload = "ON"
                 else:
