@@ -12,6 +12,10 @@ APPS += sparrow-instances/instance-leds
 endif
 APPS += sparrow-instances/instance-nstats
 
+ifdef MAKE_WITH_NETSCAN
+APPS += netscan
+endif
+
 ifeq ($(TARGET),)
   -include Makefile.target
 endif
