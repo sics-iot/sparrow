@@ -1,5 +1,4 @@
 SPARROW=../../..
-CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT = remote
 
 TARGET=zoul-sparrow

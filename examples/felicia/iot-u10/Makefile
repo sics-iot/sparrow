@@ -1,5 +1,4 @@
 SPARROW=../../..
-CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT = iot-u10
 
 TARGET=felicia

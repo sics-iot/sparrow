@@ -1,5 +1,4 @@
 SPARROW=../..
-CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT = dual-op-mode
 
 all: $(CONTIKI_PROJECT)

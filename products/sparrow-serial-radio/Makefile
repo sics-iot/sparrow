@@ -1,5 +1,4 @@
 SPARROW=../..
-CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT=serial-radio
 
 all: $(CONTIKI_PROJECT)

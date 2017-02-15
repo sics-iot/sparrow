@@ -2,6 +2,10 @@ ifndef SPARROW
   ${error SPARROW not defined! You must specify where SPARROW resides}
 endif
 
+ifndef CONTIKI
+  CONTIKI=$(SPARROW)/contiki
+endif
+
 SPARROW_TOOLS=$(SPARROW)/tools/sparrow
 
 SPARROWDIRS += $(SPARROW)/core ${addprefix $(SPARROW)/core/,dev net net/ip net/ipv6 net/rpl net/mac sys lib}
