@@ -299,15 +299,14 @@ main(void)
 
 #if NETSTACK_CONF_WITH_IPV6
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
-  process_start(&tcpip_process, NULL);
-#if PLATFORM_WITH_DUAL_MODE == 1
+#if PLATFORM_WITH_DUAL_MODE
   if(op_mode == DUAL_MODE_OP_MODE_STANDARD) {
     /* tcpip_process does not start when in serial-radio mode */
     process_start(&tcpip_process, NULL);
   }
-#else /* PLATFORM_WITH_DUAL_MODE == 1 */
+#else /* PLATFORM_WITH_DUAL_MODE */
   process_start(&tcpip_process, NULL);
-#endif /* PLATFORM_WITH_DUAL_MODE == 1 */
+#endif /* PLATFORM_WITH_DUAL_MODE */
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 
   adc_init();
@@ -325,7 +324,14 @@ main(void)
 #endif /* HAVE_SPARROW_OAM */
 
 #ifdef HAVE_NETSCAN
+#if PLATFORM_WITH_DUAL_MODE
+  if(op_mode == DUAL_MODE_OP_MODE_STANDARD) {
+    /* netscan does not start when in serial-radio mode */
+    netscan_init();
+  }
+#else /* PLATFORM_WITH_DUAL_MODE */
   netscan_init();
+#endif /* PLATFORM_WITH_DUAL_MODE */
 #endif /* HAVE_NETSCAN */
 
   watchdog_start();
