@@ -52,6 +52,12 @@
 int FRAMER_802154_HANDLER(frame802154_t *frame);
 
 /*---------------------------------------------------------------------------*/
+int
+framer_802154_null_handler(frame802154_t *frame)
+{
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 static int
 create_frame(int type, int do_create)
 {
