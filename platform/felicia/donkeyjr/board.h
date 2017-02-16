@@ -153,6 +153,24 @@
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
+ * \name GPIO relay pin configuration
+ *
+ * @{
+ */
+
+#define GPIO_RELAY_1_PORT             GPIO_C_NUM
+#define GPIO_RELAY_1_PIN              6
+#define GPIO_RELAY_2_PORT             GPIO_C_NUM
+#define GPIO_RELAY_2_PIN              7
+#define GPIO_RELAY_3_PORT             GPIO_C_NUM
+#define GPIO_RELAY_3_PIN              5
+#define GPIO_RELAY_4_PORT             GPIO_C_NUM
+#define GPIO_RELAY_4_PIN              2
+
+#define GPIO_RELAY_DEFAULT_ON         0
+/** @} */
+/*---------------------------------------------------------------------------*/
+/**
  * \name Device string used on startup
  * @{
  */
