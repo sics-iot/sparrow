@@ -412,6 +412,19 @@ border_router_set_frontpanel_info(uint16_t info)
   write_to_slip(buf, 5);
 }
 /*---------------------------------------------------------------------------*/
+void
+border_router_set_panid(uint16_t pan_id)
+{
+  uint8_t buf[4];
+  buf[0] = '!';
+  buf[1] = 'P';
+  buf[2] = (pan_id >> 8) & 0xff;
+  buf[3] = pan_id & 0xff;
+  write_to_slip(buf, 4);
+
+  border_router_radio_set_value(RADIO_PARAM_PAN_ID, pan_id);
+}
+/*---------------------------------------------------------------------------*/
 static uint8_t pending_on;
 static uint8_t pending_off;
 static unsigned int original_baudrate;
@@ -736,6 +749,9 @@ PROCESS_THREAD(border_router_process, ev, data)
   /* Have all info from radio, init OAM and UDP server */
   udp_cmd_start();
   sparrow_oam_init();
+
+  /* Make sure the serial radio is set to the same PANID as we are. */
+  border_router_set_panid(frame802154_get_pan_id());
 
   if(radio_control_version == 0) {
     border_router_request_radio_version();
