@@ -1342,6 +1342,13 @@ get_object(radio_param_t param, void *dest, size_t size)
     return RADIO_RESULT_OK;
   }
 
+  if(param == RADIO_PARAM_NAME && size > 0) {
+    strncpy(dest, "CC2538", size);
+    /* Ensure the string is terminated */
+    ((char *)dest)[size - 1] = '\0';
+    return RADIO_RESULT_OK;
+  }
+
   return RADIO_RESULT_NOT_SUPPORTED;
 }
 /*---------------------------------------------------------------------------*/
