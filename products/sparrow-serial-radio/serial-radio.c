@@ -62,8 +62,6 @@
 #error "No SERIAL_RADIO_CONTROL_API_VERSION specified. Please set in project-conf.h!"
 #endif
 
-extern char *sparrow_radio_name;
-
 #ifdef CONTIKI_BOARD_IOT_U42
 extern const struct radio_driver cc2538_rf_driver;
 extern const struct radio_driver cc1200_driver;
@@ -845,25 +843,15 @@ serial_radio_cmd_handler(const uint8_t *data, int len)
       }
 #endif /* HAVE_SERIAL_RADIO_UART */
 
-      if(sparrow_radio_name != NULL) {
-        printf("PHY: %s\n", sparrow_radio_name);
-      } else {
-        printf("PHY: unknown\n");
+      {
+        char buf[32];
+        if(NETSTACK_RADIO.get_object(RADIO_PARAM_NAME, buf, sizeof(buf)) ==
+           RADIO_RESULT_OK) {
+          buf[sizeof(buf) - 1] = '\0';
+          printf("PHY: %s\n", buf);
+        }
       }
 
-#ifdef CONTIKI_BOARD_IOT_U42
-      {
-        const char *name;
-        if(&NETSTACK_RADIO == &cc2538_rf_driver) {
-          name = "CC2538 RF";
-        } else if(&NETSTACK_RADIO == &cc1200_driver) {
-          name = "CC1200";
-        } else {
-          name = "unknown";
-        }
-        printf("PHY: %s\n", name);
-      }
-#endif /* CONTIKI_BOARD_IOT_U42 */
 #ifdef HAVE_RADIO_FRONTPANEL
       {
         uint32_t r = radio_get_reset_cause();
