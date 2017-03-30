@@ -184,7 +184,7 @@ cc1200_arch_gpio0_setup_irq(int rising)
 
   GPIO_ENABLE_INTERRUPT(CC1200_GDO0_PORT_BASE, CC1200_GDO0_PIN_MASK);
   ioc_set_over(CC1200_GDO0_PORT, CC1200_GDO0_PIN, IOC_OVERRIDE_PUE);
-  nvic_interrupt_enable(CC1200_GPIOx_VECTOR);
+  NVIC_EnableIRQ(CC1200_GPIOx_VECTOR);
   gpio_register_callback(cc1200_int_handler, CC1200_GDO0_PORT,
                          CC1200_GDO0_PIN);
 }
@@ -206,7 +206,7 @@ cc1200_arch_gpio2_setup_irq(int rising)
 
   GPIO_ENABLE_INTERRUPT(CC1200_GDO2_PORT_BASE, CC1200_GDO2_PIN_MASK);
   ioc_set_over(CC1200_GDO2_PORT, CC1200_GDO2_PIN, IOC_OVERRIDE_PUE);
-  nvic_interrupt_enable(CC1200_GPIOx_VECTOR);
+  NVIC_EnableIRQ(CC1200_GPIOx_VECTOR);
   gpio_register_callback(cc1200_int_handler, CC1200_GDO2_PORT,
                          CC1200_GDO2_PIN);
 }
@@ -217,7 +217,7 @@ cc1200_arch_gpio0_enable_irq(void)
 {
   GPIO_ENABLE_INTERRUPT(CC1200_GDO0_PORT_BASE, CC1200_GDO0_PIN_MASK);
   ioc_set_over(CC1200_GDO0_PORT, CC1200_GDO0_PIN, IOC_OVERRIDE_PUE);
-  nvic_interrupt_enable(CC1200_GPIOx_VECTOR);
+  NVIC_EnableIRQ(CC1200_GPIOx_VECTOR);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -232,7 +232,7 @@ cc1200_arch_gpio2_enable_irq(void)
 {
   GPIO_ENABLE_INTERRUPT(CC1200_GDO2_PORT_BASE, CC1200_GDO2_PIN_MASK);
   ioc_set_over(CC1200_GDO2_PORT, CC1200_GDO2_PIN, IOC_OVERRIDE_PUE);
-  nvic_interrupt_enable(CC1200_GPIOx_VECTOR);
+  NVIC_EnableIRQ(CC1200_GPIOx_VECTOR);
 }
 #endif /* CC1200_USE_GPIO2 */
 /*---------------------------------------------------------------------------*/
@@ -247,14 +247,14 @@ cc1200_arch_gpio2_disable_irq(void)
 int
 cc1200_arch_gpio0_read_pin(void)
 {
-  return GPIO_READ_PIN(CC1200_GDO0_PORT_BASE, CC1200_GDO0_PIN_MASK);
+  return (GPIO_READ_PIN(CC1200_GDO0_PORT_BASE, CC1200_GDO0_PIN_MASK) ? 1 : 0);
 }
 /*---------------------------------------------------------------------------*/
 #if CC1200_USE_GPIO2
 int
 cc1200_arch_gpio2_read_pin(void)
 {
-  return GPIO_READ_PIN(CC1200_GDO2_PORT_BASE, CC1200_GDO2_PIN_MASK);
+  return (GPIO_READ_PIN(CC1200_GDO2_PORT_BASE, CC1200_GDO2_PIN_MASK) ? 1 : 0);
 }
 #endif /* CC1200_USE_GPIO2 */
 /*---------------------------------------------------------------------------*/
