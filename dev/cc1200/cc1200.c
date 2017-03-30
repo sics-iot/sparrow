@@ -1313,6 +1313,13 @@ static radio_result_t
 get_object(radio_param_t param, void *dest, size_t size)
 {
 
+  if(param == RADIO_PARAM_NAME && size > 0) {
+    strncpy(dest, "CC1200", size);
+    /* Ensure the string is terminated */
+    ((char *)dest)[size - 1] = '\0';
+    return RADIO_RESULT_OK;
+  }
+
   return RADIO_RESULT_NOT_SUPPORTED;
 
 }

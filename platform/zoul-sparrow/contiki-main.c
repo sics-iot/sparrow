@@ -120,8 +120,6 @@ dual_mode_get_op_mode(void)
 #endif /* PLATFORM_WITH_DUAL_MODE */
 /*---------------------------------------------------------------------------*/
 
-char *sparrow_radio_name = NULL;
-
 /** \brief Board specific iniatialisation */
 void board_init(void);
 /*---------------------------------------------------------------------------*/
@@ -214,24 +212,42 @@ set_rf_params(void)
   /* Populate linkaddr_node_addr. Maintain endianness */
   memcpy(&linkaddr_node_addr, &ext_addr[8 - LINKADDR_SIZE], LINKADDR_SIZE);
 
+  NETSTACK_RADIO.set_value(RADIO_PARAM_PAN_ID, IEEE802154_PANID);
+  NETSTACK_RADIO.set_value(RADIO_PARAM_16BIT_ADDR, short_addr);
+  NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
+
 #if STARTUP_CONF_VERBOSE
   {
     int i;
+    radio_value_t channel = 0;
+    char buf[32];
+
     printf("Network configured with ll address ");
     for(i = 0; i < LINKADDR_SIZE - 1; i++) {
       printf("%02x:", linkaddr_node_addr.u8[i]);
     }
     printf("%02x\n", linkaddr_node_addr.u8[i]);
-  }
-#endif
 
-  NETSTACK_RADIO.set_value(RADIO_PARAM_PAN_ID, IEEE802154_PANID);
-  NETSTACK_RADIO.set_value(RADIO_PARAM_16BIT_ADDR, short_addr);
-  if(&NETSTACK_RADIO == &cc2538_rf_driver)
-    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, CC2538_RF_CHANNEL);
-  else
-    NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, CC1200_DEFAULT_CHANNEL);
-  NETSTACK_RADIO.set_object(RADIO_PARAM_64BIT_ADDR, ext_addr, 8);
+    PRINTF(" Net: %s\n", NETSTACK_NETWORK.name);
+    PRINTF(" MAC: %s\n", NETSTACK_MAC.name);
+    PRINTF(" RDC: %s\n", NETSTACK_RDC.name);
+
+    /* Get the radio name if available */
+    if(NETSTACK_RADIO.get_object(RADIO_PARAM_NAME, buf, sizeof(buf)) ==
+                                 RADIO_RESULT_OK) {
+      buf[sizeof(buf) - 1] = '\0';
+      PRINTF(" PHY: %s\n", buf);
+    }
+
+    PRINTF(" PAN-ID: 0x%04x\n", IEEE802154_PANID);
+
+    /* Get the radio channel */
+    NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &channel);
+    PRINTF(" RF Channel: %d\n", channel);
+
+    PRINTF(" Compiled @ %s %s\n", __DATE__, __TIME__);
+  }
+#endif /* STARTUP_CONF_VERBOSE */
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -337,19 +353,6 @@ main(void)
   queuebuf_init();
   netstack_init();
   set_rf_params();
-
-  PRINTF(" Net: ");
-  PRINTF("%s\n", NETSTACK_NETWORK.name);
-  PRINTF(" MAC: ");
-  PRINTF("%s\n", NETSTACK_MAC.name);
-  PRINTF(" RDC: ");
-  PRINTF("%s\n", NETSTACK_RDC.name);
-  sparrow_radio_name =  &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200";
-  PRINTF(" PHY: %s\n",
-         &NETSTACK_RADIO == &cc2538_rf_driver ? "CC2538_RF" : "CC1200");
-  PRINTF(" PAN-ID: 0x%04x\n", IEEE802154_PANID);
-  PRINTF(" RF Channel: %u\n", &NETSTACK_RADIO == &cc2538_rf_driver ? CC2538_RF_CHANNEL : CC1200_DEFAULT_CHANNEL);
-  PRINTF(" Compiled @ %s %s\n", __DATE__, __TIME__);
 
 #if NETSTACK_CONF_WITH_IPV6
   memcpy(&uip_lladdr.addr, &linkaddr_node_addr, sizeof(uip_lladdr.addr));
