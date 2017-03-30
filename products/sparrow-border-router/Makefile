@@ -1,5 +1,4 @@
 SPARROW=../..
-CONTIKI=$(SPARROW)/contiki
 CONTIKI_PROJECT=border-router
 
 ifndef HOST_OS

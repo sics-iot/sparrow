@@ -42,8 +42,16 @@
 #include "net/packetbuf.h"
 #include <string.h>
 
-#define DEBUG DEBUG_NONE
-#include "net/ip/uip-debug.h"
+#define DEBUG 0
+
+#if DEBUG
+#include <stdio.h>
+#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINTADDR(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7])
+#else
+#define PRINTF(...)
+#define PRINTADDR(addr)
+#endif
 
 #ifndef FRAMER_802154_HANDLER
 #define FRAMER_802154_HANDLER handler_802154_frame_received
@@ -52,8 +60,14 @@
 int FRAMER_802154_HANDLER(frame802154_t *frame);
 
 /*---------------------------------------------------------------------------*/
+int
+framer_802154_null_handler(frame802154_t *frame)
+{
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 static int
-create_frame(int type, int do_create)
+create_frame(int do_create)
 {
   frame802154_t params;
   int hdr_len;
@@ -66,7 +80,7 @@ create_frame(int type, int do_create)
   memset(&params, 0, sizeof(params));
 
   /* Build the FCF. */
-  params.fcf.frame_type = type;
+  params.fcf.frame_type = packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE);
   params.fcf.frame_pending = packetbuf_attr(PACKETBUF_ATTR_PENDING);
   if(packetbuf_holds_broadcast()) {
     params.fcf.ack_required = 0;
@@ -166,7 +180,7 @@ create_frame(int type, int do_create)
     frame802154_create(&params, packetbuf_hdrptr(), hdr_len);
 
     PRINTF("15.4-OUT: %2X", params.fcf.frame_type);
-    PRINTLLADDR(params.dest_addr);
+    PRINTADDR(params.dest_addr);
     PRINTF("%d %u (%u)\n", hdr_len, packetbuf_datalen(), packetbuf_totlen());
 
     return hdr_len;
@@ -179,13 +193,13 @@ create_frame(int type, int do_create)
 static int
 hdr_length(void)
 {
-  return create_frame(FRAME802154_DATAFRAME, 0);
+  return create_frame(0);
 }
 /*---------------------------------------------------------------------------*/
 static int
 create(void)
 {
-  return create_frame(FRAME802154_DATAFRAME, 1);
+  return create_frame(1);
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -237,8 +251,8 @@ parse(void)
 #endif /* LLSEC802154_USES_AUX_HEADER */
 
     PRINTF("15.4-IN: %2X", frame.fcf.frame_type);
-    PRINTLLADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER));
-    PRINTLLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
+    PRINTADDR(packetbuf_addr(PACKETBUF_ADDR_SENDER));
+    PRINTADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
     PRINTF("%d %u (%u)\n", hdr_len, packetbuf_datalen(), packetbuf_totlen());
 
 #ifdef FRAMER_802154_HANDLER
