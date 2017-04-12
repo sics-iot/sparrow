@@ -68,7 +68,7 @@ TARGET_BOARD_UPPERCASE := ${strip ${shell echo $(BOARD) | sed y!$(LOWERCASE)!$(U
 CFLAGS += -DCONTIKI_BOARD_$(TARGET_BOARD_UPPERCASE)=1
 endif
 
-MODULES += core/sys core/dev core/lib
+MODULES += core core/sys core/dev core/lib
 
 # Include IPv6, IPv4, and/or Rime
 
@@ -109,8 +109,7 @@ endif
 
 CONTIKI_SOURCEFILES += $(CONTIKIFILES)
 
-CONTIKIDIRS += ${addprefix $(CONTIKI)/core/,dev lib net net/llsec net/mac net/rime \
-                 net/rpl sys cfs ctk lib/ctk loader . }
+CONTIKIDIRS += ${addprefix $(CONTIKI)/core/,cfs loader}
 
 oname = ${patsubst %.c,%.o,${patsubst %.S,%.o,$(1)}}
 
@@ -156,9 +155,9 @@ endif
 
 ifdef MODULES
   UNIQUEMODULES = $(call uniq,$(MODULES))
-  MODULEDIRS = ${wildcard ${addprefix $(CONTIKI)/, $(UNIQUEMODULES)}}
+  MODULEDIRS = ${wildcard ${addprefix $(SPARROW)/, $(UNIQUEMODULES)} ${addprefix $(CONTIKI)/, $(UNIQUEMODULES)}}
   MODULES_SOURCES = ${foreach d, $(MODULEDIRS), ${subst ${d}/,,${wildcard $(d)/*.c}}}
-  CONTIKI_SOURCEFILES += $(MODULES_SOURCES)
+  CONTIKI_SOURCEFILES += $(call uniq,$(MODULES_SOURCES))
   APPDS += $(MODULEDIRS)
 endif
 

@@ -8,10 +8,6 @@ endif
 
 SPARROW_TOOLS=$(SPARROW)/tools/sparrow
 
-SPARROWDIRS += $(SPARROW)/core ${addprefix $(SPARROW)/core/,dev net net/ip net/ipv6 net/rpl net/mac net/mac/tsch sys lib}
-CONTIKIDIRS += $(SPARROWDIRS)
-CONTIKI_SOURCEFILES += ${notdir ${wildcard ${addsuffix /*.c,$(SPARROWDIRS)}}}
-
 APPDIRS     += $(SPARROW)/apps
 TARGETDIRS  += $(SPARROW)/platform
 
