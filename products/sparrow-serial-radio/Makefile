@@ -5,7 +5,7 @@ all: $(CONTIKI_PROJECT)
 
 APPS = slip-cmd sparrow-oam sparrow-beacon
 APPS += sparrow-instances/instance-flash
-CFLAGS += -Werror
+CFLAGS += -Werror -Wno-error=tautological-compare
 
 SPARROW_OAM_LOCAL_INSTANCES += instance_radio
 
