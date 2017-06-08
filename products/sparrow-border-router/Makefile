@@ -38,9 +38,9 @@ border-router-server.c dataqueue.c latency-stats.c ylog.c
 CFLAGS += -DHAVE_BORDER_ROUTER_CTRL=1
 CFLAGS += -DHAVE_BORDER_ROUTER_SERVER=1
 
-CONTIKI_SOURCEFILES += udp-cmd.c instance-rtable.c instance-brm.c ip64-tap-driver.c
+CONTIKI_SOURCEFILES += udp-cmd.c instance-rtable.c instance-brm.c ip64-native-driver.c
 # Only have a single variable - but this force it to be there.
-PROJECT_SOURCEFILES += ip64-eth.c
+PROJECT_SOURCEFILES += ip64-eth.c ip64-null-interface.c
 
 ifneq ($(WITH_CLOCK_GETTIME),)
   CFLAGS += -DWITH_CLOCK_GETTIME=$(WITH_CLOCK_GETTIME)

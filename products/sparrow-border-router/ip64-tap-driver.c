@@ -60,6 +60,17 @@ static int fd;
 #include "ip64-eth.h"
 #include "contiki.h"
 
+#define DEBUG 1
+
+#if DEBUG
+#undef PRINTF
+#include <stdio.h>
+#define PRINTF(...) printf(__VA_ARGS__)
+#else /* DEBUG */
+#define PRINTF(...)
+#endif /* DEBUG */
+
+
 PROCESS(ip64_tap_driver_process, "IP64 tap driver");
 /*---------------------------------------------------------------------------*/
 static void
@@ -157,7 +168,8 @@ output(uint8_t *packet, uint16_t len)
     return fd;
   }
 
-  /*printf("ip64_tap_send: sending %d bytes\n", len);*/
+  /* This is IPv4 output */
+  PRINTF("ip64_tap_send: sending %d bytes\n", len);
 
   ret = write(fd, packet, len);
 

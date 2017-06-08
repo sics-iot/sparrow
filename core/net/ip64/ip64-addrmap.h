@@ -35,6 +35,8 @@
 
 #include "sys/timer.h"
 #include "net/ip/uip.h"
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 struct ip64_addrmap_entry {
   struct ip64_addrmap_entry *next;
@@ -47,6 +49,10 @@ struct ip64_addrmap_entry {
   uint16_t ip4port;
   uint8_t protocol;
   uint8_t flags;
+
+  /* These should go into a separate extension later... */
+  int sock_fd;
+  struct sockaddr_in sock_addr;
 };
 
 #define FLAGS_NONE       0

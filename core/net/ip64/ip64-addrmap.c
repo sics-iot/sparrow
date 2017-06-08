@@ -46,14 +46,22 @@
 #define NUM_ENTRIES 32
 #endif /* IP64_ADDRMAP_CONF_ENTRIES */
 
+#define DEBUG 1
+
+#if DEBUG
+#undef PRINTF
+#include <stdio.h>
+#define PRINTF(...) printf(__VA_ARGS__)
+#else /* DEBUG */
+#define PRINTF(...)
+#endif /* DEBUG */
+
 MEMB(entrymemb, struct ip64_addrmap_entry, NUM_ENTRIES);
 LIST(entrylist);
 
 #define FIRST_MAPPED_PORT 10000
 #define LAST_MAPPED_PORT  20000
 static uint16_t mapped_port = FIRST_MAPPED_PORT;
-
-#define printf(...)
 
 /*---------------------------------------------------------------------------*/
 struct ip64_addrmap_entry *
@@ -134,11 +142,11 @@ ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
-  printf("lookup ip4port %d ip6port %d\n", uip_htons(ip4port),
+  PRINTF("lookup ip4port %d ip6port %d\n", uip_htons(ip4port),
 	 uip_htons(ip6port));
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
-    printf("protocol %d %d, ip4port %d %d, ip6port %d %d, ip4 %d ip6 %d\n",
+    PRINTF("protocol %d %d, ip4port %d %d, ip6port %d %d, ip4 %d ip6 %d\n",
 	   m->protocol, protocol,
 	   m->ip4port, ip4port,
 	   m->ip6port, ip6port,
@@ -163,7 +171,7 @@ ip64_addrmap_lookup_port(uint16_t mapped_port, uint8_t protocol)
 
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
-    printf("mapped port %d %d, protocol %d %d\n",
+    PRINTF("mapped port %d %d, protocol %d %d\n",
 	   m->mapped_port, mapped_port,
 	   m->protocol, protocol);
     if(m->mapped_port == mapped_port &&
@@ -209,6 +217,7 @@ ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
     m->flags = FLAGS_NONE;
     m->ip6to4 = 1;
     m->ip4to6 = 0;
+    m->sock_fd = -1;
     timer_set(&m->timer, 0);
 
     /* Pick a new, unused local port. First make sure that the
