@@ -93,8 +93,6 @@ static int64_t radio_diff;
 static uip_ipaddr_t prefix;
 static uip_ipaddr_t dag_id;
 
-static uip_ipaddr_t nat64_ipv4_dest;
-
 static uint8_t prefix_set;
 
 static uint8_t dag_init_version = 0;
@@ -891,15 +889,6 @@ PROCESS_THREAD(border_router_process, ev, data)
       YLOG_DEBUG("Re-request SR version\n");
       border_router_request_radio_version();
     }
-
-    /* test to send a packet out to the nat64 address range... */
-
-    uip_ip6addr_u8(&nat64_ipv4_dest,
-                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                   0x00, 0x00, 0xff, 0xff, 192, 168, 1, 21);
-
-    sparrow_oam_send_udp_packet(&nat64_ipv4_dest, htons(4711),
-                                (uint8_t *) "the data is here", 12);
 
     watchdog_periodic();
     /* Only send periodic information when not running as slave */
