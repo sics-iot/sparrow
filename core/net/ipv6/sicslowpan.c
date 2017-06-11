@@ -187,7 +187,12 @@ void uip_log(char *msg);
 #endif
 
 /* set this to zero if not compressing EXT_HDR - for backwards compatibility */
-#define COMPRESS_EXT_HDR 1
+#ifdef SICSLOWPAN_CONF_COMPRESS_EXT_HDR
+#define COMPRESS_EXT_HDR SICSLOWPAN_CONF_COMPRESS_EXT_HDR
+#else
+/* avoid compressing by default - to be compatible with older versions */
+#define COMPRESS_EXT_HDR 0
+#endif
 
 #if COMPRESS_EXT_HDR
 #define IS_COMPRESSABLE_PROTO(x) (x == UIP_PROTO_UDP               \
