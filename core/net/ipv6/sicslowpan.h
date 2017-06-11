@@ -144,6 +144,15 @@
 /* NHC_EXT_HDR */
 #define SICSLOWPAN_NHC_MASK                         0xF0
 #define SICSLOWPAN_NHC_EXT_HDR                      0xE0
+#define SICSLOWPAN_NHC_BIT                          0x01
+
+/* The header values */
+#define SICSLOWPAN_NHC_ETX_HDR_HBHO                 0x00
+#define SICSLOWPAN_NHC_ETX_HDR_ROUTING              0x01
+#define SICSLOWPAN_NHC_ETX_HDR_FRAG                 0x02
+#define SICSLOWPAN_NHC_ETX_HDR_DESTO                0x03
+#define SICSLOWPAN_NHC_ETX_HDR_MOH                  0x04
+#define SICSLOWPAN_NHC_ETX_HDR_IPV6                 0x07
 
 /**
  * \name LOWPAN_UDP encoding (works together with IPHC)
@@ -157,6 +166,7 @@
 #define SICSLOWPAN_NHC_UDP_ID                       0xF0
 #define SICSLOWPAN_NHC_UDP_CHECKSUMC                0x04
 #define SICSLOWPAN_NHC_UDP_CHECKSUMI                0x00
+
 /* values for port compression, _with checksum_ ie bit 5 set to 0 */
 #define SICSLOWPAN_NHC_UDP_CS_P_00  0xF0 /* all inline */
 #define SICSLOWPAN_NHC_UDP_CS_P_01  0xF1 /* source 16bit inline, dest = 0xF0 + 8 bit inline */
@@ -176,6 +186,7 @@
 #define SICSLOWPAN_FRAG1_HDR_LEN                    4
 #define SICSLOWPAN_FRAGN_HDR_LEN                    5
 /** @} */
+
 
 /**
  * \brief The header for fragments
