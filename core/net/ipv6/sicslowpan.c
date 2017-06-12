@@ -255,7 +255,8 @@ static uint16_t my_tag;
 #ifdef SICSLOWPAN_CONF_FRAGMENT_SIZE
 #define SICSLOWPAN_FRAGMENT_SIZE SICSLOWPAN_CONF_FRAGMENT_SIZE
 #else
-#define SICSLOWPAN_FRAGMENT_SIZE 110
+/* The default fragment size (110 bytes for 127-2 bytes frames) */
+#define SICSLOWPAN_FRAGMENT_SIZE (MAC_MAX_PAYLOAD - 15)
 #endif
 
 /* Assuming that the worst growth for uncompression is 38 bytes */

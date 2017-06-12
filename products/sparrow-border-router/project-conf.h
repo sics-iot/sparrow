@@ -63,6 +63,13 @@
 #undef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM         32
 
+
+#ifdef WITH_SUBGHZ
+/* If using 802.15.4g - we need to set later packet sizes */
+#define PACKETBUF_CONF_SIZE             255
+#define SICSLOWPAN_CONF_MAC_MAX_PAYLOAD 253
+#endif
+
 #undef SICSLOWPAN_CONF_FRAGMENT_BUFFERS
 #define SICSLOWPAN_CONF_FRAGMENT_BUFFERS 64
 

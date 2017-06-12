@@ -359,10 +359,15 @@ typedef uint32_t rtimer_clock_t;
 #define NULLRDC_CONF_MAX_RETRANSMISSIONS        3
 #define NULLRDC_CONF_ENABLE_RETRANSMISSIONS_BCAST 1
 
+#define PACKETBUF_CONF_SIZE             255
+#define SICSLOWPAN_CONF_MAC_MAX_PAYLOAD 253
+
 #define NETSTACK_CONF_RADIO         cc1200_driver
-#define CC1200_CONF_USE_GPIO2       0
+#define CC1200_CONF_MAX_PAYLOAD_LEN 255
+#define CC1200_CONF_USE_GPIO2       1
 #define CC1200_CONF_USE_RX_WATCHDOG 0
 #define ANTENNA_SW_SELECT_DEF_CONF  ANTENNA_SW_SELECT_SUBGHZ
+#define CC1200_CONF_802154G         1
 #else
 /* Configure NullRDC for when it's selected - cc2538-rf has autoretrans... */
 #define NULLRDC_802154_AUTOACK                  0
@@ -370,6 +375,10 @@ typedef uint32_t rtimer_clock_t;
 
 #if WITH_920
 #define CC1200_CONF_RF_CFG          cc1200_802154g_920_928_fsk_50kbps
+#define CC1200_CONF_DEFAULT_CHANNEL 0
+#endif
+#if WITH_868
+#define CC1200_CONF_RF_CFG          cc1200_802154g_863_870_fsk_50kbps
 #define CC1200_CONF_DEFAULT_CHANNEL 0
 #endif
 

@@ -94,7 +94,9 @@
 
 #define RPL_CONF_NOPATH_REMOVAL_DELAY               60
 
+#ifndef SICSLOWPAN_CONF_MAC_MAX_PAYLOAD
 #define SICSLOWPAN_CONF_MAC_MAX_PAYLOAD      (127 - 2)
+#endif
 #define SICSLOWPAN_CONF_COMPRESSION_THRESHOLD        0
 #define SICSLOWPAN_CONF_FRAG                         1
 /* Timeout for packet reassembly at the 6LoWPAN layer (1/16 seconds) */
