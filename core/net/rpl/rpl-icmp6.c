@@ -92,6 +92,7 @@ void RPL_DEBUG_DAO_OUTPUT(rpl_parent_t *);
 #endif
 
 static uint8_t dao_sequence = RPL_LOLLIPOP_INIT;
+static uint8_t path_sequence = RPL_LOLLIPOP_INIT;
 
 #if RPL_WITH_MULTICAST
 static uip_mcast6_route_t *mcast_group;
@@ -386,8 +387,8 @@ dio_input(void)
         dio.mc.obj.energy.flags = buffer[i + 6];
         dio.mc.obj.energy.energy_est = buffer[i + 7];
       } else {
-       PRINTF("RPL: Unhandled DAG MC type: %u\n", (unsigned)dio.mc.type);
-       goto discard;
+        /* Unhandled MC type will be silently ignored */
+        PRINTF("RPL: Unhandled DAG MC type: %u\n", (unsigned)dio.mc.type);
       }
       break;
     case RPL_OPTION_ROUTE_INFO:
@@ -1090,6 +1091,7 @@ dao_output(rpl_parent_t *parent, uint8_t lifetime)
   }
 
   RPL_LOLLIPOP_INCREMENT(dao_sequence);
+  RPL_LOLLIPOP_INCREMENT(path_sequence);
 #if RPL_WITH_DAO_ACK
   /* set up the state since this will be the first transmission of DAO */
   /* retransmissions will call directly to dao_output_target_seq */
@@ -1204,7 +1206,7 @@ dao_output_target_seq(rpl_parent_t *parent, uip_ipaddr_t *prefix,
   buffer[pos++] = (instance->mop != RPL_MOP_NON_STORING) ? 4 : 20;
   buffer[pos++] = 0; /* flags - ignored */
   buffer[pos++] = 0; /* path control - ignored */
-  buffer[pos++] = 0; /* path seq - ignored */
+  buffer[pos++] = path_sequence; /* path seq */
   buffer[pos++] = lifetime;
 
   if(instance->mop != RPL_MOP_NON_STORING) {
