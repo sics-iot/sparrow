@@ -22,6 +22,10 @@ TARGET=native-sparrow
 #linker optimizations
 SMALL=1
 
+ifneq ($(MAKE_WITH_SUBGHZ),)
+   CFLAGS += -DWITH_SUBGHZ=1
+endif
+
 CFLAGS += -Werror
 # OSX (g)cc does not like  -Wunused-but-set-variable
 ifneq ($(HOST_OS),Darwin)
