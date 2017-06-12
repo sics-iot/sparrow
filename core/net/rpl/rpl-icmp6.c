@@ -387,8 +387,8 @@ dio_input(void)
         dio.mc.obj.energy.flags = buffer[i + 6];
         dio.mc.obj.energy.energy_est = buffer[i + 7];
       } else {
-       PRINTF("RPL: Unhandled DAG MC type: %u\n", (unsigned)dio.mc.type);
-       goto discard;
+        /* Unhandled MC type will be silently ignored */
+        PRINTF("RPL: Unhandled DAG MC type: %u\n", (unsigned)dio.mc.type);
       }
       break;
     case RPL_OPTION_ROUTE_INFO:
