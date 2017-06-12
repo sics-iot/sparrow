@@ -226,11 +226,6 @@ main(int argc, char **argv)
   netstack_init();
   printf("MAC %s RDC %s NETWORK %s\n", NETSTACK_MAC.name, NETSTACK_RDC.name, NETSTACK_NETWORK.name);
 
-#if NETSTACK_CONF_WITH_IPV6
-  process_start(&tcpip_process, NULL);
-#ifdef __CYGWIN__
-  process_start(&wpcap_process, NULL);
-#endif /* __CYGWIN__ */
   printf("Tentative link-local IPv6 address ");
   {
     uip_ds6_addr_t *lladdr;
@@ -245,9 +240,6 @@ main(int argc, char **argv)
 
     printf("%02x%02x\n", lladdr->ipaddr.u8[14], lladdr->ipaddr.u8[15]);
   }
-#elif NETSTACK_CONF_WITH_IPV4
-  process_start(&tcpip_process, NULL);
-#endif /* NETSTACK_CONF_WITH_IPV6 */
 
   serial_line_init();
 
