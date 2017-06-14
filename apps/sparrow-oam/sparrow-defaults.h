@@ -67,7 +67,7 @@
 
 #define RPL_CONF_INSERT_HBH_OPTION                   1
 
-#define RPL_CONF_DAO_ACK                             1
+#define RPL_CONF_WITH_DAO_ACK                        1
 
 /* Need to enable NA */
 #define UIP_CONF_ND6_SEND_NA                         1
