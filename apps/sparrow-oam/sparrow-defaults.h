@@ -69,6 +69,9 @@
 
 #define RPL_CONF_WITH_DAO_ACK                        1
 
+/* Include the DODAG ID in DAO */
+#define RPL_CONF_DAO_SPECIFY_DAG                     1
+
 /* Need to enable NA */
 #define UIP_CONF_ND6_SEND_NA                         1
 #define UIP_CONF_ND6_REACHABLE_TIME             3600000L
