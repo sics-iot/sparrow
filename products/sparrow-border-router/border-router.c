@@ -860,6 +860,7 @@ PROCESS_THREAD(border_router_process, ev, data)
     dag = rpl_set_root(RPL_DEFAULT_INSTANCE, &dag_id);
   }
   if(dag != NULL) {
+    dag->grounded = 1;
     rpl_set_prefix(dag, &prefix, 64);
     if(has_dag_version) {
       YLOG_DEBUG("created a new RPL dag with version %u\n", dag_init_version);
