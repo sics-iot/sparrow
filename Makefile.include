@@ -68,6 +68,10 @@ TARGET_BOARD_UPPERCASE := ${strip ${shell echo $(BOARD) | sed y!$(LOWERCASE)!$(U
 CFLAGS += -DCONTIKI_BOARD_$(TARGET_BOARD_UPPERCASE)=1
 endif
 
+# Sparrow API
+MODULES += sparrow sparrow/sys sparrow/dev
+
+# Contiki core extensions
 MODULES += core core/sys core/dev core/lib
 
 # Include IPv6, IPv4, and/or Rime
