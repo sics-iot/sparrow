@@ -50,7 +50,7 @@ for line in content:
         continue
     if "Discarded" in line:
         state = DISCARDED_SECTIONS
-    if ".isr_vector" in line:
+    if ".isr_vector" in line or "Memory Configuration" in line:
         state = TEXT_SECTIONS
     if ".boot_data" in line:
         state = RAM_SECTIONS
