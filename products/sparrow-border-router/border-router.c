@@ -626,19 +626,18 @@ PROCESS_THREAD(border_router_process, ev, data)
 
   PROCESS_BEGIN();
 
+  prefix_set = 0;
+  dis = 2; /* send a couple of DIS at startup to detect any existing network */
+
+  br_config_handle_arguments(contiki_argc, contiki_argv);
+
+  YLOG_INFO("RPL-Border router started\n");
+
   watchdog_init();
   /* Start watchdog immediately */
   /* watchdog_start(); */
 
-  prefix_set = 0;
-  dis = 2; /* send a couple of DIS at startup to detect any existing network */
-
   PROCESS_PAUSE();
-
-  watchdog_periodic();
-
-  YLOG_INFO("RPL-Border router started\n");
-  br_config_handle_arguments(contiki_argc, contiki_argv);
 
   YLOG_DEBUG("Registering Join Callback\n");
   rpl_set_join_callback(br_join_dag);
