@@ -32,6 +32,8 @@
 
 #include <stdint.h>
 
+extern int br_config_radio_channel;
+extern int br_config_radio_panid;
 extern uint8_t br_config_wait_for_address;
 extern uint8_t br_config_verbose_output;
 extern const char *br_config_ipaddr;

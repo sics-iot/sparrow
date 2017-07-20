@@ -142,7 +142,7 @@ hextoi(const uint8_t *buf, int len, int *v)
   return buf;
 }
 /*---------------------------------------------------------------------------*/
-static const uint8_t *
+const uint8_t *
 dectoi(const uint8_t *buf, int len, int *v)
 {
   int negative = 0;
@@ -172,7 +172,7 @@ dectoi(const uint8_t *buf, int len, int *v)
   return buf;
 }
 /*---------------------------------------------------------------------------*/
-static int
+int
 index_of(uint8_t v, const uint8_t *buf, int offset, int len)
 {
   for(; offset < len; offset++) {
@@ -263,19 +263,15 @@ border_router_cmd_handler(const uint8_t *data, int len)
       if(command_context == CMD_CONTEXT_RADIO) {
         /* We need to know that this is from the slip-radio here. */
         YLOG_INFO("Channel is: %d\n", data[2]);
+
+        border_router_radio_set_value(RADIO_PARAM_CHANNEL, data[2]);
         return 1;
       }
       if(command_context == CMD_CONTEXT_STDIO) {
         int channel = -1;
         dectoi(&data[2], len - 2, &channel);
         if(channel >= 0) {
-          uint8_t buf[5];
-          buf[0] = '!';
-          buf[1] = 'C';
-          buf[2] = channel & 0xff;
-          write_to_slip(buf, 3);
-
-          border_router_radio_set_value(RADIO_PARAM_CHANNEL, channel);
+          border_router_set_channel(channel);
           return 1;
         }
         YLOG_ERROR("*** illegal channel: %u\n", channel);
@@ -394,15 +390,8 @@ border_router_cmd_handler(const uint8_t *data, int len)
         int pan_id;
         dectoi(&data[2], len - 2, &pan_id);
         /* printf("PAN ID: %u (%04x)\n", pan_id, pan_id); */
-        uint8_t buf[5];
-        buf[0] = '!';
-        buf[1] = 'P';
-        buf[2] = (pan_id >> 8) & 0xff;
-        buf[3] = pan_id & 0xff;
-        write_to_slip(buf, 4);
+        border_router_set_panid(pan_id & 0xffff);
         handler_802154_join(pan_id);
-
-        border_router_radio_set_value(RADIO_PARAM_PAN_ID, pan_id);
         return 1;
       }
       return 1;
