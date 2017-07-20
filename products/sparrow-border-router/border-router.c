@@ -425,6 +425,18 @@ border_router_set_panid(uint16_t pan_id)
   border_router_radio_set_value(RADIO_PARAM_PAN_ID, pan_id);
 }
 /*---------------------------------------------------------------------------*/
+void
+border_router_set_channel(uint16_t channel)
+{
+  uint8_t buf[4];
+  buf[0] = '!';
+  buf[1] = 'C';
+  buf[2] = channel & 0xff;
+  write_to_slip(buf, 3);
+
+  border_router_radio_set_value(RADIO_PARAM_CHANNEL, channel);
+}
+/*---------------------------------------------------------------------------*/
 static uint8_t pending_on;
 static uint8_t pending_off;
 static unsigned int original_baudrate;
@@ -614,19 +626,18 @@ PROCESS_THREAD(border_router_process, ev, data)
 
   PROCESS_BEGIN();
 
+  prefix_set = 0;
+  dis = 2; /* send a couple of DIS at startup to detect any existing network */
+
+  br_config_handle_arguments(contiki_argc, contiki_argv);
+
+  YLOG_INFO("RPL-Border router started\n");
+
   watchdog_init();
   /* Start watchdog immediately */
   /* watchdog_start(); */
 
-  prefix_set = 0;
-  dis = 2; /* send a couple of DIS at startup to detect any existing network */
-
   PROCESS_PAUSE();
-
-  watchdog_periodic();
-
-  YLOG_INFO("RPL-Border router started\n");
-  br_config_handle_arguments(contiki_argc, contiki_argv);
 
   YLOG_DEBUG("Registering Join Callback\n");
   rpl_set_join_callback(br_join_dag);
@@ -746,16 +757,27 @@ PROCESS_THREAD(border_router_process, ev, data)
     border_router_set_radio_mode(RADIO_MODE_NORMAL);
   }
 
-  /* Have all info from radio, init OAM and UDP server */
-  udp_cmd_start();
-  sparrow_oam_init();
+  /* Make sure the serial radio is set to the correct PANID. */
+  if(br_config_radio_panid >= 0) {
+    border_router_set_panid(br_config_radio_panid & 0xffff);
+  } else {
+    border_router_set_panid(frame802154_get_pan_id());
+  }
 
-  /* Make sure the serial radio is set to the same PANID as we are. */
-  border_router_set_panid(frame802154_get_pan_id());
+  /* Set the serial radio to the correct radio channel */
+  if(br_config_radio_channel >= 0) {
+    border_router_set_channel(br_config_radio_channel);
+  } else {
+    border_router_set_channel(RF_CHANNEL);
+  }
 
   if(radio_control_version == 0) {
     border_router_request_radio_version();
   }
+
+  /* Have all info from radio, init OAM and UDP server */
+  udp_cmd_start();
+  sparrow_oam_init();
 
   /* The border router runs with a 100% duty cycle in order to ensure high
      packet reception rates. */

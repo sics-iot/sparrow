@@ -71,6 +71,8 @@
 #define DEFAULT_BEACON "fe02010a020090da0100001b5800"
 #endif /* SPARROW_BORDER_ROUTER_CONF_BEACON */
 
+int br_config_radio_channel = -1;
+int br_config_radio_panid = -1;
 uint8_t br_config_wait_for_address = 0;
 uint8_t br_config_verbose_output = 1;
 const char *br_config_ipaddr = NULL;
@@ -92,6 +94,39 @@ uint8_t br_config_is_slave = 0;
 #endif
 speed_t br_config_b_rate = BAUDRATE;
 
+int index_of(uint8_t v, const uint8_t *buf, int offset, int len);
+const uint8_t *dectoi(const uint8_t *buf, int len, int *v);
+
+/*---------------------------------------------------------------------------*/
+static int
+handle_config(const char *arg)
+{
+  char name[64];
+  const char *opt;
+  int arg_len;
+
+  arg_len = index_of('=', (const uint8_t *)arg, 0, strlen(arg));
+
+  if(arg_len > 0 && arg_len < sizeof(name)) {
+    memcpy(name, arg, arg_len);
+    name[arg_len] = '\0';
+    opt = arg + arg_len + 1;
+
+    if(strcmp("channel", name) == 0) {
+      dectoi((const uint8_t *)opt, strlen(opt), &br_config_radio_channel);
+      return 1;
+    }
+
+    if(strcmp("panid", name) == 0) {
+      dectoi((const uint8_t *)opt, strlen(opt), &br_config_radio_panid);
+      return 1;
+    }
+  }
+  fprintf(stderr, "*** Unsupported configuration: %s\n", arg);
+  return 0;
+}
+
+/*---------------------------------------------------------------------------*/
 #define GET_OPT_OPTIONS "_?hB:HD:Ls:t:v::b::d::i:l:a:p:SP:C:c:X:"
 /*---------------------------------------------------------------------------*/
 int
@@ -111,6 +146,12 @@ br_config_handle_arguments(int argc, char **argv)
       break;
     case 'B':
       baudrate = atoi(optarg);
+      break;
+
+    case 'D':
+      if(! handle_config(optarg)) {
+        exit(EXIT_FAILURE);
+      }
       break;
 
     case 'H':
@@ -213,6 +254,7 @@ br_config_handle_arguments(int argc, char **argv)
 fprintf(stderr,"usage:  %s [options]\n", prog);
 fprintf(stderr,"example: border-router.native -s ttyUSB1 -i aaaa::1/64\n");
 fprintf(stderr,"Options are:\n");
+fprintf(stderr," -Dname=value   Set config <name> to value <value>\n");
 fprintf(stderr," -B baudrate    9600,19200,38400,57600,115200,230400,460800,921600 (default 460800)\n");
 fprintf(stderr," -H             Hardware CTS/RTS flow control (default disabled)\n");
 fprintf(stderr," -s siodev      Serial device (default /dev/ttyUSB0)\n");

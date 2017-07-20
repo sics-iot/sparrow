@@ -91,6 +91,7 @@ void border_router_set_radio_mode(uint8_t mode);
 uint8_t border_router_get_radio_mode(void);
 void border_router_set_frontpanel_info(uint16_t info);
 void border_router_set_panid(uint16_t pan_id);
+void border_router_set_channel(uint16_t channel);
 void border_router_request_radio_version(void);
 void border_router_request_radio_time(void);
 void border_router_print_stat(void);
