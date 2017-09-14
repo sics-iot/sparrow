@@ -34,9 +34,12 @@
  */
 
 #include "dev/button-sensor.h"
+#include "dev/gpio-relay.h"
+
 SENSORS(&button_sensor);
 
 void
 board_init(void)
 {
+  gpio_relay_init();
 }
