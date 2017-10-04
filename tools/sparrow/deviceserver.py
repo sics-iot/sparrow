@@ -69,6 +69,7 @@ class Device:
     button_instance = None
     button_counter = None
     leds_instance = None
+    lamp_instance = None
     temperature_instance = None
     nstats_instance = None
     sleep_instance = None
@@ -422,6 +423,8 @@ class DeviceServer:
                     dev.motion_instance = i
                 elif data[0] == tlvlib.INSTANCE_LEDS_GENERIC:
                     dev.leds_instance = i
+                elif data[0] == tlvlib.INSTANCE_LAMP:
+                    dev.lamp_instance = i
                 elif data[0] == tlvlib.INSTANCE_TEMP_GENERIC:
                     dev.temperature_instance = i
                 elif data[0] == tlvlib.INSTANCE_TEMPHUM_GENERIC:
