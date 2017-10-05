@@ -279,14 +279,18 @@ output(void)
 #if WITH_IP64
     if(ip64_addr_is_ipv4_mapped_addr(&UIP_IP_BUF->destipaddr)) {
       /* This is an IP64 address */
-      printf("output to ip64: ");
-      uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
-      printf("\n");
+      if(DEBUG) {
+        PRINTF("output to ip64: ");
+        uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+        PRINTF("\n");
+      }
       return ip64_uip_fallback_interface.output();
     }
-    printf("output to tun: ");
-    uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
-    printf("\n");
+    if(DEBUG) {
+      PRINTF("output to tun: ");
+      uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+      PRINTF("\n");
+    }
 #endif /* WITH_IP64 */
     return tun_output(&uip_buf[UIP_LLH_LEN], uip_len);
   }

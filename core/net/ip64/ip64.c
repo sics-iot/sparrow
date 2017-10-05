@@ -64,7 +64,7 @@
 #include "ip64-ipv4-dhcp.h"
 #include "contiki-net.h"
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #include <string.h> /* for memcpy() */

@@ -50,7 +50,7 @@
 #include "ip64-addrmap.h"
 #include "contiki.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
 #undef PRINTF
@@ -129,13 +129,9 @@ poll(uint8_t *buf, const uint16_t buflen)
       if(ret == -1) {
         perror("ip64_native_poll: read\n");
       } else {
-        int i;
         PRINTF("Read: %d %x -> %x %d (socklen: %d)\n",
                ret, htonl(sock_addr.sin_addr.s_addr), htonl((entry->ip4addr.u16[0] << 16) | entry->ip4addr.u16[1]),
                htons(sock_addr.sin_port), socklen);
-        for(i = 0; i < ret; i++) {
-          PRINTF("%c", buf[i + UIP_IP64_IPUDP_SIZE]);
-        }
         uint32_t addr = htonl(sock_addr.sin_addr.s_addr);
         UIP_IP64_BUF->vhl = 0x45; /* v4, 20 bytes size */
         /* copy source address */
@@ -232,7 +228,10 @@ output(uint8_t *packet, uint16_t len)
                  sizeof(struct uip_udp_hdr), 0,
                  (struct sockaddr *)&destaddr,
                  sizeof(destaddr));
-      PRINTF("Sent: %d\n", (int)s);
+      PRINTF("Sent: %d\n", (int) s);
+      if(s < 0) {
+        perror("Nothing sent?\n");
+      }
     }
   }
 

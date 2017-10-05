@@ -46,7 +46,7 @@
 #define NUM_ENTRIES 32
 #endif /* IP64_ADDRMAP_CONF_ENTRIES */
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
 #undef PRINTF
