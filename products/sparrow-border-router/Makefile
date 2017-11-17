@@ -14,7 +14,7 @@ all: $(CONTIKI_PROJECT)
 APPS += slip-cmd
 APPS += sparrow-oam sparrow-instances/instance-nstats
 
-SPARROW_OAM_INSTANCES += radio1 radio2 radio3 instance_rtable instance_brm
+SPARROW_OAM_INSTANCES += radio1 radio2 radio3 instance_rtable instance_brm instance_nbr
 CURSES_LIBS=
 
 TARGET=native-sparrow
@@ -41,7 +41,7 @@ border-router-server.c dataqueue.c latency-stats.c ylog.c
 CFLAGS += -DHAVE_BORDER_ROUTER_CTRL=1
 CFLAGS += -DHAVE_BORDER_ROUTER_SERVER=1
 
-CONTIKI_SOURCEFILES += udp-cmd.c instance-rtable.c instance-brm.c
+CONTIKI_SOURCEFILES += udp-cmd.c instance-rtable.c instance-brm.c instance-nbr.c
 
 ifneq ($(WITH_CLOCK_GETTIME),)
   CFLAGS += -DWITH_CLOCK_GETTIME=$(WITH_CLOCK_GETTIME)
