@@ -171,7 +171,7 @@ output(uint8_t *packet, uint16_t len)
 {
   struct ip64_addrmap_entry *entry;
   struct sockaddr_in destaddr;
-  size_t s;
+  ssize_t s;
 
   /* This is IPv4 output */
   if(UIP_IP64_BUF->proto == UIP_PROTO_UDP) {
@@ -207,19 +207,19 @@ output(uint8_t *packet, uint16_t len)
       memcpy(&destaddr.sin_addr.s_addr, &UIP_IP64_BUF->destipaddr, 4);
       destaddr.sin_port = UIP_IP64_UDP_BUF->destport;
 
-      char str[30];
-      inet_ntop(AF_INET, &destaddr.sin_addr, str, 30);
-
-      PRINTF("** Sending data to '%s':", str);
-      {
+      if(DEBUG) {
         int i;
         int h = sizeof(struct uip_ip4_hdr) + sizeof(struct uip_udp_hdr);
         int l = len - h;
+        char str[30];
+        inet_ntop(AF_INET, &destaddr.sin_addr, str, 30);
+
+        PRINTF("** Sending data to '%s': ", str);
         for(i = 0; i < l; i++) {
           PRINTF("%02x", packet[i + h]);
         }
+        PRINTF("\n");
       }
-      PRINTF("\n");
 
       s = sendto(entry->sock_fd,
                  &packet[sizeof(struct uip_ip4_hdr) +
