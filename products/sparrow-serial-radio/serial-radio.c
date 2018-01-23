@@ -875,9 +875,9 @@ serial_radio_cmd_handler(const uint8_t *data, int len)
       }
 #endif /* HAVE_RADIO_FRONTPANEL */
       return 1;
+#ifdef HAVE_RADIO_FRONTPANEL
     case 'x': {
       switch(data[2]) {
-#ifdef HAVE_RADIO_FRONTPANEL
       case 'F': {
         uint32_t speed = radio_frontpanel_get_fan_speed();
         printf("Fan is %s (speed is set to 0x%"PRIx32")\n",
@@ -893,21 +893,9 @@ serial_radio_cmd_handler(const uint8_t *data, int len)
         }
         return 1;
       }
-      case 'x':
-#ifdef CONTIKI_BOARD_SKIPPER
-        if(data[3] == 'x' && data[4] == 'x') {
-          printf("KILLING POWER NOW!!!\n");
-          platform_system_power(0);
-          return 1;
-        }
-#endif /* CONTIKI_BOARD_SKIPPER */
-#endif /* HAVE_RADIO_FRONTPANEL */
-        printf("Unknown x command: %02x\n", data[3]);
-        return 1;
-      default:
-        return 1;
       }
     }
+#endif /* HAVE_RADIO_FRONTPANEL */
     }
   } /* if(data[0] == '?' */
   return 0;
