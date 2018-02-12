@@ -56,6 +56,7 @@
 
 static nbr_entry_t *local_nbr_table = NULL;
 static int nbr_table_length = 0;
+static int nbr_table_revision = 0;
 
 /*---------------------------------------------------------------------------*/
 static void update_local_nbr_table()
@@ -118,6 +119,7 @@ static void update_local_nbr_table()
     old_nbr_table = local_nbr_table;
     local_nbr_table = new_nbr_table;
     nbr_table_length = num_nbr;
+    nbr_table_revision++;
     /* free old table */
     if (old_nbr_table != NULL)
 	free(old_nbr_table);
@@ -140,7 +142,6 @@ nbr_process_request(const sparrow_oam_instance_t *instance,
 
     if (request->variable == VARIABLE_NBR_COUNT) {
 	if (request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
-	    update_local_nbr_table();
 	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_length);
 	}
 
@@ -154,6 +155,19 @@ nbr_process_request(const sparrow_oam_instance_t *instance,
 	    else
 		request->elements = MIN(request->elements, (nbr_table_length - request->offset));
 	    return sparrow_tlv_write_reply_vector(request, reply, len, ((uint8_t *)local_nbr_table));
+	}
+
+	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
+    }
+
+    else if (request->variable == VARIABLE_NBR_REVISION) {
+	if (request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
+	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_revision);
+	}
+
+	else if (request->opcode == SPARROW_TLV_OPCODE_SET_REQUEST) {
+	    update_local_nbr_table();
+	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_revision);
 	}
 
 	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;

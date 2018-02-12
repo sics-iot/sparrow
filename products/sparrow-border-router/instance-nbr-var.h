@@ -52,10 +52,20 @@
 
 #define VARIABLE_NBR_COUNT     0x100 /* Count of neighbours */
 #define VARIABLE_NBR_TABLE     0x101 /* Neighbour table */
+#define VARIABLE_NBR_REVISION  0x102 /* Neighbour table revision - write=update */
+
+/*
+ * Client "workflow":
+ * 1. Set VARIABLE_NBR_REVISION (value ignored): instance updates local neighbour table
+ * 2. Get VARIABLE_NBR_COUNT
+ * 3. Get VARIABLE_NBR_TABLE
+ * 4. Get VARIABLE_NBR_REVISION - if changed from step 1/4, retry from step 2
+ */
 
 static const sparrow_oam_variable_t instance_nbr_variables[] = {
-    { VARIABLE_NBR_COUNT,  4, SPARROW_OAM_WRITABILITY_RO, SPARROW_OAM_FORMAT_INTEGER, 0 },
-    { VARIABLE_NBR_TABLE, 64, SPARROW_OAM_WRITABILITY_RO, SPARROW_OAM_FORMAT_ARRAY,   SPARROW_OAM_VECTOR_DEPTH_DONT_CHECK },
+    { VARIABLE_NBR_COUNT,    4, SPARROW_OAM_WRITABILITY_RO, SPARROW_OAM_FORMAT_INTEGER, 0 },
+    { VARIABLE_NBR_TABLE,   64, SPARROW_OAM_WRITABILITY_RO, SPARROW_OAM_FORMAT_ARRAY,   SPARROW_OAM_VECTOR_DEPTH_DONT_CHECK },
+    { VARIABLE_NBR_REVISION, 4, SPARROW_OAM_WRITABILITY_RW, SPARROW_OAM_FORMAT_INTEGER, 0 },
 };
 
 #endif /* _INSTANCE_NBR_VAR_H_ */
