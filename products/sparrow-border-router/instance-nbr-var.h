@@ -57,9 +57,10 @@
 /*
  * Client "workflow":
  * 1. Set VARIABLE_NBR_REVISION (value ignored): instance updates local neighbour table
- * 2. Get VARIABLE_NBR_COUNT
- * 3. Get VARIABLE_NBR_TABLE
- * 4. Get VARIABLE_NBR_REVISION - if changed from step 1/4, retry from step 2
+ * 2. Get VARIABLE_NBR_REVISION
+ * 3. Get VARIABLE_NBR_COUNT
+ * 4. Get VARIABLE_NBR_TABLE
+ * 5. Get VARIABLE_NBR_REVISION - if changed from step 2/5, retry from step 3
  */
 
 static const sparrow_oam_variable_t instance_nbr_variables[] = {

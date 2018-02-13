@@ -59,70 +59,72 @@ static int nbr_table_length = 0;
 static int nbr_table_revision = 0;
 
 /*---------------------------------------------------------------------------*/
-static void update_local_nbr_table()
+static void
+update_local_nbr_table()
 {
-    nbr_entry_t *new_nbr_table, *old_nbr_table;
-    uip_ds6_nbr_t *nbr;
-    rpl_instance_t *def_instance;
-    const uip_lladdr_t *lladdr;
-    rpl_parent_t *p;
-    const struct link_stats *ls;
-    int num_nbr, i;
+  nbr_entry_t *new_nbr_table, *old_nbr_table;
+  uip_ds6_nbr_t *nbr;
+  rpl_instance_t *def_instance;
+  const uip_lladdr_t *lladdr;
+  rpl_parent_t *p;
+  const struct link_stats *ls;
+  int num_nbr, i;
 
-    def_instance = rpl_get_default_instance();
+  def_instance = rpl_get_default_instance();
 
-    /* alloc new table */
-    num_nbr = uip_ds6_nbr_num();
-    new_nbr_table = malloc(num_nbr * sizeof(nbr_entry_t));
-    if (new_nbr_table == NULL) {
-	YLOG_ERROR("Failed to alloc new table.\n");
-	return;
-    }
-    memset(new_nbr_table, 0, num_nbr * sizeof(nbr_entry_t));
+  /* alloc new table */
+  num_nbr = uip_ds6_nbr_num();
+  new_nbr_table = malloc(num_nbr * sizeof(nbr_entry_t));
+  if(new_nbr_table == NULL) {
+    YLOG_ERROR("Failed to alloc new table.\n");
+    return;
+  }
+  memset(new_nbr_table, 0, num_nbr * sizeof(nbr_entry_t));
 
-    /* get all info similarly to "nbr" command */
-    for (nbr = nbr_table_head(ds6_neighbors), i = 0;
-	 (nbr != NULL) && (i < num_nbr);
-	 nbr = nbr_table_next(ds6_neighbors, nbr), i++) {
+  /* get all info similarly to "nbr" command */
+  for(nbr = nbr_table_head(ds6_neighbors), i = 0;
+      (nbr != NULL) && (i < num_nbr);
+      nbr = nbr_table_next(ds6_neighbors, nbr), i++) {
+    new_nbr_table[i].ipaddr = nbr->ipaddr;
+    new_nbr_table[i].remaining =
+      uip_htonl(stimer_expired(&nbr->reachable) ? 0 : stimer_remaining(&nbr->reachable));
+    new_nbr_table[i].state = nbr->state;
 
-	new_nbr_table[i].ipaddr = nbr->ipaddr;
-	new_nbr_table[i].remaining =
-	    uip_htonl(stimer_expired(&nbr->reachable) ? 0 : stimer_remaining(&nbr->reachable));
-	new_nbr_table[i].state = nbr->state;
+    lladdr = uip_ds6_nbr_get_ll(nbr);
+    p = nbr_table_get_from_lladdr(rpl_parents, (const linkaddr_t*)lladdr);
 
-        lladdr = uip_ds6_nbr_get_ll(nbr);
-        p = nbr_table_get_from_lladdr(rpl_parents, (const linkaddr_t*)lladdr);
+    if(p != NULL) {
+      new_nbr_table[i].rpl_flags = p->flags;
+      new_nbr_table[i].rpl_flags |= NBR_FLAG_PARENT;
 
-	if (p != NULL) {
-	    new_nbr_table[i].rpl_flags = p->flags;
-	    new_nbr_table[i].rpl_flags |= NBR_FLAG_PARENT;
+      if(def_instance != NULL && def_instance->current_dag != NULL &&
+	 def_instance->current_dag->preferred_parent == p) {
+	new_nbr_table[i].rpl_flags |= NBR_FLAG_PREFERRED;
+      }
 
-	    if(def_instance != NULL && def_instance->current_dag != NULL &&
-	       def_instance->current_dag->preferred_parent == p)
-		new_nbr_table[i].rpl_flags |= NBR_FLAG_PREFERRED;
-
-	    new_nbr_table[i].rpl_rank = uip_htons(p->rank);
-	}
-
-        ls = link_stats_from_lladdr((const linkaddr_t *)lladdr);
-	new_nbr_table[i].link_etx = uip_htons(ls->etx);
-	new_nbr_table[i].link_rssi = uip_htons(ls->rssi);
-	new_nbr_table[i].link_fresh = ls->freshness;
+      new_nbr_table[i].rpl_rank = uip_htons(p->rank);
     }
 
-    if (num_nbr != i) {
-	YLOG_DEBUG("Neighbour count mismatch (%d vs %d) - neighbour list updated while read.\n", num_nbr, i);
-	num_nbr = i;
-    }
+    ls = link_stats_from_lladdr((const linkaddr_t *)lladdr);
+    new_nbr_table[i].link_etx = uip_htons(ls->etx);
+    new_nbr_table[i].link_rssi = uip_htons(ls->rssi);
+    new_nbr_table[i].link_fresh = ls->freshness;
+  }
 
-    /* switch to new table */
-    old_nbr_table = local_nbr_table;
-    local_nbr_table = new_nbr_table;
-    nbr_table_length = num_nbr;
-    nbr_table_revision++;
-    /* free old table */
-    if (old_nbr_table != NULL)
-	free(old_nbr_table);
+  if(num_nbr != i) {
+    YLOG_DEBUG("Neighbour count mismatch (%d vs %d) - neighbour list updated while read.\n", num_nbr, i);
+    num_nbr = i;
+  }
+
+  /* switch to new table */
+  old_nbr_table = local_nbr_table;
+  local_nbr_table = new_nbr_table;
+  nbr_table_length = num_nbr;
+  nbr_table_revision++;
+  /* free old table */
+  if (old_nbr_table != NULL) {
+    free(old_nbr_table);
+  }
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -138,42 +140,40 @@ nbr_process_request(const sparrow_oam_instance_t *instance,
 		    sparrow_tlv_t *request, uint8_t *reply, size_t len,
 		    sparrow_oam_processing_t *oam_processing)
 {
-    uint8_t error = SPARROW_TLV_ERROR_UNKNOWN_VARIABLE;
+  uint8_t error = SPARROW_TLV_ERROR_UNKNOWN_VARIABLE;
 
-    if (request->variable == VARIABLE_NBR_COUNT) {
-	if (request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
-	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_length);
-	}
-
-	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
+  if(request->variable == VARIABLE_NBR_COUNT) {
+    if(request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
+      return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_length);
     }
 
-    else if (request->variable == VARIABLE_NBR_TABLE) {
-	if (request->opcode == SPARROW_TLV_OPCODE_VECTOR_GET_REQUEST) {
-	    if (request->offset > nbr_table_length)
-		request->elements = 0;
-	    else
-		request->elements = MIN(request->elements, (nbr_table_length - request->offset));
-	    return sparrow_tlv_write_reply_vector(request, reply, len, ((uint8_t *)local_nbr_table));
-	}
+    error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
 
-	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
+  } else if(request->variable == VARIABLE_NBR_TABLE) {
+    if(request->opcode == SPARROW_TLV_OPCODE_VECTOR_GET_REQUEST) {
+      if(request->offset > nbr_table_length) {
+	request->elements = 0;
+      } else {
+	request->elements = MIN(request->elements, (nbr_table_length - request->offset));
+      }
+      return sparrow_tlv_write_reply_vector(request, reply, len, ((uint8_t *)local_nbr_table));
     }
 
-    else if (request->variable == VARIABLE_NBR_REVISION) {
-	if (request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
-	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_revision);
-	}
+    error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
 
-	else if (request->opcode == SPARROW_TLV_OPCODE_SET_REQUEST) {
-	    update_local_nbr_table();
-	    return sparrow_tlv_write_reply32(request, reply, len, NULL);
-	}
+  } else if(request->variable == VARIABLE_NBR_REVISION) {
+    if(request->opcode == SPARROW_TLV_OPCODE_GET_REQUEST) {
+      return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_revision);
 
-	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
+    } else if(request->opcode == SPARROW_TLV_OPCODE_SET_REQUEST) {
+      update_local_nbr_table();
+      return sparrow_tlv_write_reply32(request, reply, len, NULL);
     }
 
-    return sparrow_tlv_write_reply_error(request, error, reply, len);
+    error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
+  }
+
+  return sparrow_tlv_write_reply_error(request, error, reply, len);
 }
 /*---------------------------------------------------------------------------*/
 SPARROW_OAM_INSTANCE(instance_nbr,

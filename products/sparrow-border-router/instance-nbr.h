@@ -49,18 +49,18 @@
 
 /* NOTE: numbers kept in network byte order! */
 struct nbr_entry {
-    uip_ipaddr_t ipaddr;     /* IP address */
+  uip_ipaddr_t ipaddr;	     /* IP address */
 #if NETSTACK_CONF_WITH_IPV6 == 0
-    uint8_t    pad1[12];
+  uint8_t      pad1[12];
 #endif
-    uint32_t   remaining;    /* Secs remaining of "reachable" timer */
-    uint8_t    state;	     /* "REACHABLE" etc */
-    uint8_t    rpl_flags;    /* RPL parent flags */
-    uint16_t   rpl_rank;     /* RPL parent rank */
-    uint16_t   link_etx;     /* ETX, fixed point w divisor 128 */
-    int16_t    link_rssi;    /* RSSI */
-    uint8_t    link_fresh;   /* Freshness */
-    uint8_t    pad2[35];     /* Pad to even 64 bytes (room for extensions) */
+  uint32_t     remaining;    /* Secs remaining of "reachable" timer */
+  uint8_t      state;	     /* "REACHABLE" etc */
+  uint8_t      rpl_flags;    /* RPL parent flags */
+  uint16_t     rpl_rank;     /* RPL parent rank */
+  uint16_t     link_etx;     /* ETX, fixed point w divisor 128 */
+  int16_t      link_rssi;    /* RSSI */
+  uint8_t      link_fresh;   /* Freshness */
+  uint8_t      pad2[35];     /* Pad to even 64 bytes (room for extensions) */
 };
 
 typedef struct nbr_entry nbr_entry_t;
