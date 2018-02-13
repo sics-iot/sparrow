@@ -167,7 +167,7 @@ nbr_process_request(const sparrow_oam_instance_t *instance,
 
 	else if (request->opcode == SPARROW_TLV_OPCODE_SET_REQUEST) {
 	    update_local_nbr_table();
-	    return sparrow_tlv_write_reply32int(request, reply, len, nbr_table_revision);
+	    return sparrow_tlv_write_reply32(request, reply, len, NULL);
 	}
 
 	error = SPARROW_TLV_ERROR_UNKNOWN_OP_CODE;
