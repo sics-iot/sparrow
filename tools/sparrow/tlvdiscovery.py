@@ -224,6 +224,32 @@ for data in d[1]:
                 IPv6Str = socket.inet_ntop(socket.AF_INET6, tlv.value[o:o+16])
                 IPv6LLStr = socket.inet_ntop(socket.AF_INET6, tlv.value[o+16:o+32])
                 print "\t",(r + 1), IPv6Str, "->", IPv6LLStr
+    elif data[0] == tlvlib.INSTANCE_NEIGHBOURS:
+        t1 = tlvlib.create_set_tlv32(i, tlvlib.VARIABLE_NBR_REVISION, 0)
+        t2 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_NBR_REVISION)
+        t3 = tlvlib.create_get_tlv32(i, tlvlib.VARIABLE_NBR_COUNT)
+        enc, tlvs = tlvlib.send_tlv([t1,t2, t3], host)
+        nbr_rev = tlvs[1].int_value
+        nbr_count = tlvs[2].int_value
+        print "\tNeighbor table size:", nbr_count," revision:",nbr_rev
+        if verbose and nbr_count > 0:
+            if nbr_count > 10:
+                # only list first 10 neighbors
+                nbr_count = 10
+            t = tlvlib.create_get_vector_tlv(i, tlvlib.VARIABLE_NBR_TABLE,
+                                             tlvlib.SIZE512, 0, nbr_count)
+            # No need to check revision again since only a single read is done
+            enc, tlvs = tlvlib.send_tlv(t, host)
+            tlv = tlvs[0]
+            print
+            print "\tNBR {:32} {:>5} {:>5} {:>4}".format('Address','Rank','ETX','RSSI')
+            for r in range(0, tlv.element_count):
+                o = r * 64
+                IPv6Str = socket.inet_ntop(socket.AF_INET6, tlv.value[o:o+16])
+                rank,etx = struct.unpack_from("!HH", tlv.value, o + 22)
+                rssi, = struct.unpack_from("!h", tlv.value, o + 26)
+                print '\t{0:3d} {1:32} {2:5.2f} {3:5.2f} {4:4d}'.format(r + 1, IPv6Str, rank / 128.0, etx / 128.0, rssi)
+
     elif data[0] == tlvlib.INSTANCE_MOTION_GENERIC:
         t = tlvlib.create_get_tlv128(i, 0x100)
         enc,tlvs = tlvlib.send_tlv(t, host)
