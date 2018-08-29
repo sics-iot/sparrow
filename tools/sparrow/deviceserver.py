@@ -395,7 +395,7 @@ class DeviceServer:
             return False
 
     def set_location(self, address, location):
-        self.log.debug("[%s] Setting location to %d", location)
+        self.log.debug("[%s] Setting location to %d", address, location)
         t = tlvlib.create_set_tlv32(0, tlvlib.VARIABLE_LOCATION_ID, location)
         enc,tlvs = tlvlib.send_tlv(t, address)
         return tlvs
@@ -784,11 +784,11 @@ class DeviceServer:
                 device = self.get_device(host)
                 enc = tlvlib.parse_encap(data)
                 if enc.error != 0:
-                    self.log.error("[%s] RECV ENCAP ERROR %s", '', str(enc.error))
+                    self.log.error("[%s] RECV ENCAP ERROR %s", host, str(enc.error))
                 elif enc.payload_type == tlvlib.ENC_PAYLOAD_TLV:
                     self._process_incoming_tlvs(sock, host, port, device, enc, data[enc.size():])
                 else:
-                    self.log.error("[%s] RECV ENCAP UNHANDLED PAYLOAD %s", str(enc.payload_type))
+                    self.log.error("[%s] RECV ENCAP UNHANDLED PAYLOAD %s", host, str(enc.payload_type))
 
             except socket.timeout:
                 pass
