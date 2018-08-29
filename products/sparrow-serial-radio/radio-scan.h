@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, Swedish Institute of Computer Science.
+ * Copyright (c) 2013, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,9 +41,10 @@
 #include "sys/clock.h"
 
 typedef enum {
-  RADIO_SCAN_MODE_NORMAL       = 0,
-  RADIO_SCAN_MODE_RSSI         = 1,
-  RADIO_SCAN_MODE_RSSI_CHANNEL = 2
+  RADIO_SCAN_MODE_NORMAL           = 0,
+  RADIO_SCAN_MODE_RSSI             = 1,
+  RADIO_SCAN_MODE_RSSI_CHANNEL     = 2,
+  RADIO_SCAN_MODE_RSSI_CHANNEL_AGG = 3
 } radio_scan_mode_t;
 
 typedef struct {
@@ -58,9 +59,6 @@ radio_scan_mode_t radio_scan_get_mode(void);
 void radio_scan_set_mode(radio_scan_mode_t mode);
 
 void radio_scan_set_channel(uint8_t channel);
-
-uint16_t radio_scan_get_active_channels(void);
-void radio_scan_set_active_channels(uint16_t channels);
 
 clock_time_t radio_scan_get_duration(void);
 void radio_scan_set_duration(clock_time_t scan_time);

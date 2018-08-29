@@ -67,6 +67,12 @@ void udma_err_isr(void);
 void crypto_isr(void);
 void pka_isr(void);
 
+#if RSSI_SCAN_TIMER2A_ISR_CONF_ENABLE
+void gptimer2a_isr(void);
+#else
+#define gptimer2a_isr default_handler
+#endif
+
 /* Link in the USB ISR only if USB is enabled */
 #if USB_SERIAL_CONF_ENABLE
 void usb_isr(void);
@@ -150,7 +156,7 @@ void(*const vectors[])(void) =
   default_handler,            /* 36 Timer 0 subtimer B */
   default_handler,            /* 37 Timer 1 subtimer A */
   default_handler,            /* 38 Timer 1 subtimer B */
-  default_handler,            /* 39 Timer 2 subtimer A */
+  gptimer2a_isr,              /* 39 Timer 2 subtimer A */
   default_handler,            /* 40 Timer 2 subtimer B */
   default_handler,            /* 41 Analog Comparator 0 */
   default_handler,            /* 42 RFCore Rx/Tx (Alternate) */

@@ -54,6 +54,9 @@
 #define LPM_CONF_ENABLE          1
 #define SERIAL_BAUDRATE     460800
 
+/* For RSSI Scanner using CC2538 based serial-radio */
+#define RSSI_SCAN_TIMER2A_ISR_CONF_ENABLE   1
+
 #ifndef WITH_UART
 #define WITH_UART 0
 #endif
