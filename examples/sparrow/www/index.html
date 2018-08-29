@@ -286,6 +286,10 @@ function getTypeButtons(type, address) {
 	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',1)">Led 2 Toggle</button>&nbsp;' +
 	    '<button class="cupid-green-small" onClick="temp_read(\'' + address + '\')">Read Temp</button>';
+    } else if (checkType(type, "led lamp")) {
+	buttons = buttons + '<button class="cupid-green-small" onClick="lamp_control(\'' + address + '\',0)">off</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="lamp_control(\'' + address + '\',50)">50%</button>&nbsp;' +
+	    '<button class="cupid-green-small" onClick="lamp_control(\'' + address + '\',100)">100%</button>'
     } else if (checkType(type, "zolertia ") || checkType(type, "zoul ")) {
 	// generate the buttons for the Zoul RE-MOTE/Firefly
 	buttons = buttons + '<button class="cupid-green-small" onClick="led_control(\'' + address + '\',0)">Led 1 Toggle</button>&nbsp;' +
@@ -299,6 +303,10 @@ function getTypeButtons(type, address) {
 // function for sending a led control command
 function led_control(address, led) {
     doSend("tlvled " + address + " " + led);
+}
+
+function lamp_control(address, led) {
+    doSend("tlvlamp " + address + " " + led);
 }
 
 function temp_read(address) {

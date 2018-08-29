@@ -34,13 +34,18 @@ import wsplugin, tlvlib, thread, deviceserver, json, struct, socket
 class TLVCommands(wsplugin.DemoPlugin):
 
     def get_commands(self):
-        return ["tlvled", "tlvtemp"]
+        return ["tlvled", "tlvlamp", "tlvtemp"]
 
     def handle_command(self, wsdemo, cmds):
         if cmds[0] == "tlvled":
             ip = cmds[1]
             led = cmds[2]
             thread.start_new_thread(tlvled, (wsdemo, ip, led))
+            return True
+        elif cmds[0] == "tlvlamp":
+            ip = cmds[1]
+            led = cmds[2]
+            thread.start_new_thread(tlvlamp, (wsdemo, ip, led))
             return True
         elif cmds[0] == "tlvtemp":
             ip = cmds[1]
@@ -62,6 +67,22 @@ def tlvled(ws, ip, led):
         except socket.timeout:
             print "LED No response from node", ip
             ws.sendMessage(json.dumps({"error":"No response from node " + ip}))
+
+# Toggle a LED on a Yanzi IoT-U10 node (or other node with LEDs)
+def tlvlamp(ws, ip, led):
+    de = ws.get_device_manager().get_device(ip)
+    if de and de.lamp_instance:
+        t1 = tlvlib.create_set_tlv32(de.lamp_instance, tlvlib.VARIABLE_LAMP_CONTROL, float(led)/100.0 * 0xffffffffL)
+        try:
+            enc, tlvs = tlvlib.send_tlv(t1, ip)
+            if tlvs[0].error == 0:
+                print "LAMP set to ", led, "%"
+            else:
+                print "LAMP Set error", tlvs[0].error
+        except socket.timeout:
+            print "LAMP No response from node", ip
+            ws.sendMessage(json.dumps({"error":"No response from node " + ip}))
+
 
 # Read the temperature from a Sparrow device
 def tlvtemp(ws, ip):
