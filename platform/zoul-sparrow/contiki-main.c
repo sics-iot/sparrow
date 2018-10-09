@@ -350,8 +350,10 @@ main(void)
 
   rtc_init();
 
-  queuebuf_init();
+  /* Will initialize all layers - including ip layer (and start TCP process) */
   netstack_init();
+
+  queuebuf_init();
   set_rf_params();
 
 #if NETSTACK_CONF_WITH_IPV6
@@ -359,10 +361,10 @@ main(void)
 #if PLATFORM_WITH_DUAL_MODE
   if(op_mode == DUAL_MODE_OP_MODE_STANDARD) {
     /* tcpip_process does not start when in serial-radio mode */
-    process_start(&tcpip_process, NULL);
+    /* process_start(&tcpip_process, NULL); */
   }
 #else /* PLATFORM_WITH_DUAL_MODE */
-  process_start(&tcpip_process, NULL);
+  /* process_start(&tcpip_process, NULL); */
 #endif /* PLATFORM_WITH_DUAL_MODE */
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 

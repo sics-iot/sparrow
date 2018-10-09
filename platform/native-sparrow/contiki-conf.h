@@ -100,6 +100,7 @@ typedef unsigned short uip_stats_t;
 #define NETSTACK_CONF_FRAMER  framer_802154
 #endif /* NETSTACK_CONF_FRAMER */
 
+#define NETSTACK_CONF_IP uip_driver
 #define NETSTACK_CONF_NETWORK sicslowpan_driver
 
 #define NETSTACK_CONF_LINUXRADIO_DEV "wpan0"

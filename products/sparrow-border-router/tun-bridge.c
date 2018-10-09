@@ -309,7 +309,7 @@ handle_fd(fd_set *rset, fd_set *wset)
 #endif
 
       PRINTF("TUN data incoming read:%d PROCESS\n", size);
-      tcpip_input();
+      NETSTACK_IP.input();
     }
   }
 }

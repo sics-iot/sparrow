@@ -328,6 +328,10 @@ typedef uint32_t rtimer_clock_t;
  *
  * @{
  */
+#ifndef NETSTACK_CONF_IP
+#define NETSTACK_CONF_IP uip_driver
+#endif
+
 #ifndef NETSTACK_CONF_NETWORK
 #if NETSTACK_CONF_WITH_IPV6
 #define NETSTACK_CONF_NETWORK sicslowpan_driver

@@ -63,12 +63,12 @@
 #include "contiki.h"
 #include "dev/watchdog.h"
 #include "net/link-stats.h"
-#include "net/ip/tcpip.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/rime/rime.h"
 #include "net/ipv6/sicslowpan.h"
 #include "net/netstack.h"
+#include "net/ip/tcpip.h"
 
 #include <stdio.h>
 
@@ -1609,7 +1609,7 @@ send_packet(linkaddr_t *dest)
  *  MAC.
  */
 static uint8_t
-output(const uip_lladdr_t *localdest)
+output(const linkaddr_t *localdest)
 {
   int framer_hdrlen;
   int max_payload;
@@ -2074,7 +2074,9 @@ input(void)
       callback->input_callback();
     }
 
-    tcpip_input();
+    PRINTF("TCP INPUT: %d\n", uip_len);
+    NETSTACK_IP.input();
+
 #if SICSLOWPAN_CONF_FRAG
   }
 #endif /* SICSLOWPAN_CONF_FRAG */
@@ -2087,12 +2089,6 @@ input(void)
 void
 sicslowpan_init(void)
 {
-  /*
-   * Set out output function as the function to be called from uIP to
-   * send a packet.
-   */
-
-  tcpip_set_outputfunc(output);
 
 #if SICSLOWPAN_COMPRESSION == SICSLOWPAN_COMPRESSION_HC06
 /* Preinitialize any address contexts for better header compression
@@ -2148,7 +2144,8 @@ sicslowpan_get_last_rssi(void)
 const struct network_driver sicslowpan_driver = {
   "sicslowpan",
   sicslowpan_init,
-  input
+  input,
+  output
 };
 /*--------------------------------------------------------------------*/
 /** @} */
